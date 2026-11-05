@@ -1,0 +1,15 @@
+{
+  "name": "u2u-live",
+  "version": "7.0.0",
+  "description": "U2U - chat en tiempo real Vendedor/Comprador",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
