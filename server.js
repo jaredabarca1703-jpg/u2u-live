@@ -1,15 +1,18 @@
 /* U2U · servidor de tiempo real (Express + Socket.io)
  * - Sirve la app desde /public
- * - Sin registro: cada dispositivo entra con nombre + rol, pero con una identidad propia
+ * - Sin registro ni roles: cada dispositivo entra con un nombre y una identidad propia
  *   (uid público + secreto privado) para que nadie pueda suplantar a otro.
- * - Publicaciones: lo que alguien publica con "+" se guarda, se reenvía en vivo a todos
- *   los demás y se entrega a quien entre después.
- * - Chat PRIVADO por producto: cada conversación es (producto + comprador) y solo la ven
- *   el comprador y el dueño de ese producto. Nadie más recibe esos mensajes.
+ * - Cualquier usuario puede publicar, comprar, alquilar y chatear.
+ * - Publicaciones: se guardan, se reenvían en vivo a todos y se entregan a quien entre después.
+ * - Chat PRIVADO por producto: solo lo ven el interesado y el dueño de ese producto.
+ * - Pedidos con CÓDIGO DE ENTREGA (estilo PedidosYa): al comprar se genera un PIN de 6 dígitos
+ *   que solo ve el comprador. El dueño lo ingresa al entregar el producto y recién ahí se
+ *   confirma la transacción.
  * - Todo vive en memoria (se borra al reiniciar el servidor): ideal para demo.
  */
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 
@@ -20,32 +23,32 @@ const io = new Server(server, { maxHttpBufferSize: 1e6 }); // 1 MB por mensaje (
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
 
-const MAX_CONVS = 500;   // conversaciones guardadas en memoria
-const MAX_MSGS = 200;    // mensajes por conversación
-const MAX_PRODUCTS = 50; // publicaciones en el catálogo compartido (las más antiguas se descartan)
+const MAX_CONVS = 500, MAX_MSGS = 200, MAX_PRODUCTS = 50, MAX_ORDERS = 1000;
 const MAX_PHOTOS = 3, MAX_PHOTO = 250000, MAX_TOTAL = 450000; // tamaños de fotos (caracteres base64)
+const MAX_PIN_FAILS = 5, LOCK_MS = 5 * 60 * 1000;             // 5 intentos y bloqueo de 5 minutos
 const CATS = ['Cámaras', 'Laptops', 'Calculadoras', 'Herramientas', 'Libros', 'Audio', 'Ropa'];
 const MODES = ['venta', 'alquiler', 'ambos'];
-const CONDS = ['Nuevo', 'Como nuevo', 'Usado'];
+const CONDS = ['Nuevo', 'Semi nuevo', 'Usado'];
+const CAREERS = ['Ing. Civil', 'Arquitectura', 'Sistemas', 'Negocios', 'Comunicaciones', 'Diseño de Moda', 'Salud'];
 
-const convs = new Map();    // key "pid|buyerId" -> { key, pid, buyerId, buyerName, msgs: [] }
+const convs = new Map();    // "pid|buyerId" -> { key, pid, buyerId, buyerName, msgs: [] }
 const products = new Map(); // id -> publicación (catálogo compartido)
-const owners = new Map();   // pid -> uid del dueño (se conserva aunque la publicación salga del catálogo)
-const auth = new Map();     // uid -> secreto (quien llegó primero con ese uid es su dueño)
+const owners = new Map();   // pid -> uid del dueño
+const orders = new Map();   // id -> pedido
+const auth = new Map();     // uid -> secreto
 let lastId = Date.now();
 
 const ownerOf = (pid) => owners.get(pid);
 const presence = () => {
-  const r = io.sockets.adapter.rooms, s = r.get('sellers');
+  const r = io.sockets.adapter.rooms;
   return {
-    sellers: s ? s.size : 0,
     total: io.engine.clientsCount,
     uids: [...r.keys()].filter((k) => k.startsWith('u:')).map((k) => k.slice(2)), // quién está en línea
   };
 };
 const num = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
 
-/* Valida y limpia una publicación recibida (nunca confiamos en el cliente) */
+/* ---------- Publicaciones ---------- */
 function cleanProduct(d, me) {
   d = d || {};
   const t = String(d.t || '').trim().slice(0, 60);
@@ -68,23 +71,57 @@ function cleanProduct(d, me) {
 
   let id = parseInt(d.id, 10);
   if (!Number.isSafeInteger(id) || id <= 1000) id = 0;
+  const cond = d.cond === 'Como nuevo' ? 'Semi nuevo' : d.cond; // compatibilidad con publicaciones antiguas
+  const car = [...new Set(Array.isArray(d.car) ? d.car : [])].filter((c) => CAREERS.includes(c)).slice(0, CAREERS.length);
   return {
     p: {
-      id, t, ph, mode, price, rent, dep,
+      id, t, ph, mode, price, rent, dep, car,
       cat: CATS.includes(d.cat) ? d.cat : 'Herramientas',
-      cond: CONDS.includes(d.cond) ? d.cond : 'Usado',
+      cond: CONDS.includes(cond) ? cond : 'Usado',
       cp: Math.min(3, Math.max(0, parseInt(d.cp, 10) || 0)),
       desc: String(d.desc || '').trim().slice(0, 500) || 'Sin descripción',
+      status: 'available', // available | reserved | sold
       ownerUid: me.uid, ownerName: me.name, ts: Date.now(),
     },
   };
+}
+
+function setStatus(p, status) {
+  if (p.status === status) return;
+  p.status = status;
+  io.emit('product-status', { id: p.id, status }); // todos ven el cambio al instante
+}
+
+/* ---------- Pedidos con código de entrega ---------- */
+function newPin() {
+  const used = new Set([...orders.values()].filter((o) => o.status === 'pending').map((o) => o.pin));
+  let pin;
+  do { pin = String(crypto.randomInt(0, 1000000)).padStart(6, '0'); } while (used.has(pin));
+  return pin;
+}
+function newOrderId() {
+  let id;
+  do { id = 'U2U-' + String(crypto.randomInt(0, 1000000)).padStart(6, '0'); } while (orders.has(id));
+  return id;
+}
+// El PIN solo lo ve el comprador y mientras el pedido está pendiente. Nunca llega al dueño.
+function view(o, uid) {
+  const v = { ...o };
+  delete v.pin; delete v.fails; delete v.lockedUntil;
+  if (uid === o.buyerId && o.status === 'pending') v.pin = o.pin;
+  v.locked = !!(o.lockedUntil && o.lockedUntil > Date.now());
+  return v;
+}
+function pushOrder(o) {
+  io.to('u:' + o.buyerId).emit('order', view(o, o.buyerId));
+  io.to('u:' + o.ownerId).emit('order', view(o, o.ownerId));
 }
 
 io.on('connection', (socket) => {
   socket.data = {};
   io.emit('presence', presence()); // avisa a todos que alguien abrió el enlace
 
-  /* Entrada sin fricción: nombre + rol. La identidad (uid + secreto) la genera el dispositivo. */
+  /* Entrada sin fricción: solo nombre. La identidad (uid + secreto) la genera el dispositivo. */
   socket.on('join', (d) => {
     d = d || {};
     const uid = String(d.uid || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24);
@@ -97,18 +134,14 @@ io.on('connection', (socket) => {
       if (auth.size > 5000) auth.delete(auth.keys().next().value);
     }
     const name = String(d.name || '').trim().slice(0, 24) || 'Anónimo';
-    const role = d.role === 'seller' ? 'seller' : 'buyer';
 
     if (socket.data.uid) socket.leave('u:' + socket.data.uid);
-    socket.leave('sellers');
-
-    socket.data = { uid, name, role, hits: [], pubs: [] };
+    socket.data = { uid, name, hits: [], pubs: [], ords: [] };
     socket.join('u:' + uid);
-    if (role === 'seller') socket.join('sellers'); // solo para el contador de la pantalla de entrada
 
-    // Historial PRIVADO: solo mis conversaciones como comprador o como dueño del producto
-    const list = [...convs.values()].filter((c) => c.buyerId === uid || ownerOf(c.pid) === uid);
-    socket.emit('history', list);
+    // Todo lo privado: solo MIS conversaciones y MIS pedidos (como comprador o como dueño)
+    socket.emit('history', [...convs.values()].filter((c) => c.buyerId === uid || ownerOf(c.pid) === uid));
+    socket.emit('orders', [...orders.values()].filter((o) => o.buyerId === uid || o.ownerId === uid).map((o) => view(o, uid)));
     socket.emit('products', [...products.values()]); // catálogo compartido (público)
     io.emit('presence', presence());
   });
@@ -143,7 +176,7 @@ io.on('connection', (socket) => {
     reply({ ok: true, id: p.id });
   });
 
-  /* Chat privado: solo entre el comprador y el dueño del producto */
+  /* Chat privado: solo entre el interesado y el dueño del producto */
   socket.on('send', (d, ack) => {
     const reply = (o) => typeof ack === 'function' && ack(o);
     const me = socket.data;
@@ -153,7 +186,6 @@ io.on('connection', (socket) => {
     const text = String(d.text || '').trim().slice(0, 500);
     if (!text) return reply({ error: 'Mensaje vacío' });
 
-    // anti-spam básico: 15 mensajes cada 10 s
     const now = Date.now();
     me.hits = (me.hits || []).filter((t) => now - t < 10000);
     if (me.hits.length >= 15) return reply({ error: 'Vas muy rápido, espera un momento' });
@@ -165,12 +197,10 @@ io.on('connection', (socket) => {
 
     let buyerId, from;
     if (owner === me.uid) {
-      // soy el dueño: solo puedo responder a una conversación que ya existe
       buyerId = String(d.buyerId || '');
       if (!convs.has(pid + '|' + buyerId)) return reply({ error: 'Conversación no encontrada' });
       from = 'seller';
     } else {
-      // cualquier otro usuario es comprador y solo escribe en SU conversación
       buyerId = me.uid;
       from = 'buyer';
     }
@@ -186,16 +216,11 @@ io.on('connection', (socket) => {
 
     const msg = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      uid: me.uid,
-      from,
-      name: me.name,
-      text,
-      ts: Date.now(),
+      uid: me.uid, from, name: me.name, text, ts: Date.now(),
     };
     c.msgs.push(msg);
     if (c.msgs.length > MAX_MSGS) c.msgs.shift();
 
-    // Solo dos destinatarios: el comprador y el dueño (con todos sus dispositivos)
     io.to('u:' + buyerId).to('u:' + owner).emit('msg', {
       conv: { key, pid, buyerId, buyerName: c.buyerName },
       msg,
@@ -203,10 +228,110 @@ io.on('connection', (socket) => {
     reply({ ok: true });
   });
 
-  // Cerrar sesión: deja de recibir mensajes y de contar como en línea
+  /* Crear pedido: se reserva el producto y se genera el código de entrega (solo para el comprador) */
+  socket.on('order:create', (d, ack) => {
+    const reply = (o) => typeof ack === 'function' && ack(o);
+    const me = socket.data;
+    if (!me || !me.uid) return reply({ error: 'Primero entra con tu nombre' });
+    d = d || {};
+
+    const now = Date.now();
+    me.ords = (me.ords || []).filter((t) => now - t < 60000);
+    if (me.ords.length >= 5) return reply({ error: 'Demasiados pedidos seguidos, espera un minuto' });
+
+    const pid = parseInt(d.pid, 10);
+    const p = products.get(pid);
+    const ownerId = ownerOf(pid);
+    if (!p || !ownerId) return reply({ error: 'Producto de ejemplo: compra publicaciones de otros estudiantes' });
+    if (ownerId === me.uid) return reply({ error: 'No puedes comprar tu propia publicación' });
+    if (p.status === 'sold') return reply({ error: 'Este producto ya fue vendido' });
+
+    const mode = d.mode === 'alquiler' ? 'alquiler' : 'compra';
+    if (mode === 'compra' && p.mode === 'alquiler') return reply({ error: 'Este producto solo se alquila' });
+    if (mode === 'alquiler' && p.mode === 'venta') return reply({ error: 'Este producto solo se vende' });
+    if (mode === 'compra' && p.status === 'reserved') return reply({ error: 'Otro estudiante ya inició la compra de este producto' });
+
+    const dup = [...orders.values()].find((o) => o.pid === pid && o.buyerId === me.uid && o.mode === mode && o.status === 'pending');
+    if (dup) return reply({ error: 'Ya tienes un pedido pendiente por este producto' });
+
+    // El monto lo calcula el servidor (no se confía en el cliente)
+    const del = d.del === 'home' ? 'home' : 'meet';
+    let days = 1, from = '', to = '', base = p.price;
+    if (mode === 'alquiler') {
+      const a = new Date(d.from), b = new Date(d.to);
+      days = Math.min(60, Math.max(1, Math.round((b - a) / 864e5) + 1 || 1));
+      from = String(d.from || '').slice(0, 10); to = String(d.to || '').slice(0, 10);
+      base = p.rent * days;
+    }
+    const total = base + 10 + (del === 'home' ? 15 : 0);
+
+    if (orders.size >= MAX_ORDERS) orders.delete(orders.keys().next().value);
+    const o = {
+      id: newOrderId(), pid, t: p.t, ph: p.ph[0] || '', mode, total, days, del, from, to,
+      cp: Math.min(3, Math.max(0, parseInt(d.cp, 10) || 0)),
+      status: 'pending', buyerId: me.uid, buyerName: me.name, ownerId, ownerName: p.ownerName,
+      ts: now, doneAt: 0, pin: newPin(), fails: 0, lockedUntil: 0,
+    };
+    orders.set(o.id, o);
+    me.ords.push(now);
+    if (mode === 'compra') setStatus(p, 'reserved');
+
+    pushOrder(o);
+    reply({ ok: true, order: view(o, me.uid) });
+  });
+
+  /* Confirmar entrega: SOLO el dueño, ingresando el código que le muestra el comprador */
+  socket.on('order:confirm', (d, ack) => {
+    const reply = (o) => typeof ack === 'function' && ack(o);
+    const me = socket.data;
+    if (!me || !me.uid) return reply({ error: 'Primero entra con tu nombre' });
+    d = d || {};
+    const o = orders.get(String(d.id || ''));
+    if (!o || o.ownerId !== me.uid) return reply({ error: 'Pedido no encontrado' });
+    if (o.status !== 'pending') return reply({ error: 'Este pedido ya no está pendiente' });
+
+    const now = Date.now();
+    if (o.lockedUntil > now) {
+      return reply({ error: 'Demasiados intentos. Espera ' + Math.ceil((o.lockedUntil - now) / 60000) + ' min e inténtalo de nuevo' });
+    }
+    const pin = String(d.pin || '').replace(/\D/g, '').slice(0, 6);
+    if (pin.length !== 6) return reply({ error: 'El código tiene 6 dígitos' });
+
+    const a = Buffer.from(pin), b = Buffer.from(o.pin);
+    if (!crypto.timingSafeEqual(a, b)) {
+      o.fails++;
+      if (o.fails >= MAX_PIN_FAILS) {
+        o.fails = 0; o.lockedUntil = now + LOCK_MS;
+        pushOrder(o);
+        return reply({ error: 'Código incorrecto. Pedido bloqueado 5 minutos por seguridad' });
+      }
+      return reply({ error: 'Código incorrecto (' + (MAX_PIN_FAILS - o.fails) + ' intentos restantes)' });
+    }
+
+    o.status = 'completed'; o.doneAt = now; o.fails = 0;
+    const p = products.get(o.pid);
+    if (p && o.mode === 'compra') setStatus(p, 'sold');
+    pushOrder(o);
+    reply({ ok: true });
+  });
+
+  /* Cancelar un pedido pendiente (comprador o dueño): libera la reserva */
+  socket.on('order:cancel', (d, ack) => {
+    const reply = (o) => typeof ack === 'function' && ack(o);
+    const me = socket.data;
+    if (!me || !me.uid) return reply({ error: 'Primero entra con tu nombre' });
+    const o = orders.get(String((d || {}).id || ''));
+    if (!o || (o.buyerId !== me.uid && o.ownerId !== me.uid)) return reply({ error: 'Pedido no encontrado' });
+    if (o.status !== 'pending') return reply({ error: 'Este pedido ya no está pendiente' });
+    o.status = 'cancelled'; o.doneAt = Date.now(); o.cancelledBy = me.uid;
+    const p = products.get(o.pid);
+    if (p && o.mode === 'compra') setStatus(p, 'available');
+    pushOrder(o);
+    reply({ ok: true });
+  });
+
   socket.on('leave', () => {
     if (socket.data.uid) socket.leave('u:' + socket.data.uid);
-    socket.leave('sellers');
     socket.data = {};
     io.emit('presence', presence());
   });
