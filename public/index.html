@@ -73,7 +73,7 @@ let PR=[
 {id:24,t:'Nivel de ingeniero Topcon + trípode',ph:['nivel'],e:'📏',cat:'Herramientas',mode:'alquiler',rent:80,dep:300,cond:'Usado',s:5,x:50,y:50,ts:6,desc:'Para prácticas de topografía y nivelación en campo. Incluye mira y estuche.'}];
 const ST={fav:[10,13],orders:[],chats:{10:[{m:0,t:'¡Hola! Sí, el dron tiene sus 3 baterías al 100% 🔋',h:'10:24'}],1:[{m:0,t:'¡Hola Jared! Sí, la cámara sigue disponible 😊',h:'10:24'}],3:[{m:1,t:'¿Sigue disponible el trípode?',h:'Ayer'},{m:0,t:'Sí, te espero en la puerta del campus',h:'Ayer'}]},off:{},mine:[]};
 try{Object.assign(ST,JSON.parse(localStorage.getItem('u2u6')||'{}'));PR=[...ST.mine,...PR]}catch(e){}
-const save=()=>{try{ST.mine=PR.filter(p=>p.id>100);localStorage.setItem('u2u6',JSON.stringify(ST))}catch(e){toast('Memoria llena: no se guardó')}};
+const save=()=>{try{ST.mine=PR.filter(p=>p.id>100&&!p.remote);localStorage.setItem('u2u6',JSON.stringify(ST))}catch(e){toast('Memoria llena: no se guardó')}};
 const DK=[6.2,4.5,8.3,.6];PR.forEach(p=>{if(p.s!=ME)p.d=+(DK[SEL[p.s].cp]+((p.id*13)%9)/10).toFixed(1)});
 const src=k=>IM[k]||k,P=id=>PR.find(p=>p.id==id);
 const pic=(p,i=0,c='')=>p.ph[i]?`<img src="${src(p.ph[i])}" onerror="imgErr(this,'${p.e||'📦'}')" class="w-full h-full object-cover ${c}">`:`<div class="w-full h-full grid place-items-center text-5xl bg-blue-50">${p.e||'📦'}</div>`;
@@ -264,7 +264,7 @@ function aiScan(img,a){const st=['Detectando objeto…','Evaluando estado visual
  setTimeout(()=>{Object.assign(PUB,{t:a.t,cat:a.cat,cond:a.cond,mode:a.mode,price:a.price||'',rent:a.rent||'',dep:a.dep||'',desc:a.desc,ai:a});X();R(1);toast('✨ Vision AI completó tu publicación')},st.length*650+300)}
 function pubGo(){const D=PUB;if(!D.ph.length)return toast('Elige al menos una foto');if(D.t.trim().length<3)return toast('Escribe un título');
  if((D.mode!='alquiler'&&!(+D.price>0))||(D.mode!='venta'&&!(+D.rent>0)))return toast('Ingresa los precios requeridos');
- PR.unshift({id:Date.now(),t:D.t.trim(),ph:D.ph,cat:D.cat,mode:D.mode,price:+D.price,rent:+D.rent,dep:+D.dep||0,cond:D.cond,d:0.3,s:ME,x:50,y:44,ts:99,desc:D.desc||'Sin descripción',e:'📦'});SEL[ME].cp=+D.cp;save();PT='pub';root('profile');toast('✅ Publicado · U2U AI lo sugerirá a 18 estudiantes')}
+ PR.unshift({id:Date.now(),t:D.t.trim(),ph:D.ph,cat:D.cat,mode:D.mode,price:+D.price,rent:+D.rent,dep:+D.dep||0,cond:D.cond,d:0.3,s:ME,x:50,y:44,ts:99,desc:D.desc||'Sin descripción',e:'📦',own:LV.me&&LV.me.uid});SEL[ME].cp=+D.cp;save();shareProduct(PR[0]);PT='pub';root('profile');toast(sock&&sock.connected?'✅ Publicado en vivo para todos los conectados':'✅ Publicado · U2U AI lo sugerirá a 18 estudiantes')}
 /* ===== U2U AI (simulada, funciona sin conexión) ===== */
 const mkt=p=>(((p.id*37)%31)-8);
 const fairPct=p=>p.price?Math.round(mkt(p)/(100+mkt(p))*100):0;
@@ -323,19 +323,24 @@ const LV={me:null,role:'buyer',pref:null,uid:null,convs:{},pres:{sellers:0,total
 let sock=null;
 try{LV.pref=JSON.parse(localStorage.getItem('u2u7')||'null');if(LV.pref&&LV.pref.role)LV.role=LV.pref.role}catch(e){}
 const uname=()=>LV.me?LV.me.name:'Jared',tm=ts=>new Date(ts).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
-/* un id por pestaña: dos pestañas del mismo navegador cuentan como dos personas */
-function myUid(){if(LV.uid)return LV.uid;try{LV.uid=sessionStorage.getItem('u2uid')}catch(e){}if(!LV.uid){LV.uid='u_'+Math.random().toString(36).slice(2,10);try{sessionStorage.setItem('u2uid',LV.uid)}catch(e){}}return LV.uid}
+/* identidad por dispositivo: uid público + secreto privado. El servidor solo deja entrar con ambos,
+   así nadie puede suplantarte para leer tus chats. (Dos personas = dos dispositivos o navegadores distintos.) */
+const rnd=n=>{const a=new Uint8Array(n);try{crypto.getRandomValues(a)}catch(e){for(let i=0;i<n;i++)a[i]=Math.random()*256}return[...a].map(b=>b.toString(16).padStart(2,'0')).join('')};
+function myId(fresh){if(fresh)LV.idc=null;if(LV.idc)return LV.idc;try{if(!fresh)LV.idc=JSON.parse(localStorage.getItem('u2uid')||'null')}catch(e){}
+ if(!LV.idc||!LV.idc.uid||!LV.idc.secret){LV.idc={uid:'u_'+rnd(5),secret:rnd(16)};try{localStorage.setItem('u2uid',JSON.stringify(LV.idc))}catch(e){}}return LV.idc}
+const myUid=()=>myId().uid,joinData=()=>({uid:LV.me.uid,secret:myId().secret,name:LV.me.name,role:LV.me.role});
 function setRole(r){LV.role=r;document.querySelectorAll('.rl').forEach(b=>{const on=b.dataset.role==r;b.classList.toggle('border-brand',on);b.classList.toggle('bg-blue-50',on);b.classList.toggle('border-slate-200',!on)})}
-function liveJoin(name,role){LV.me={uid:myUid(),name,role};LV.pref={name,role};try{localStorage.setItem('u2u7',JSON.stringify(LV.pref))}catch(e){}if(sock&&sock.connected)sock.emit('join',LV.me)}
+function liveJoin(name,role){SEL[ME].n=name;LV.me={uid:myUid(),name,role};LV.pref={name,role};try{localStorage.setItem('u2u7',JSON.stringify(LV.pref))}catch(e){}if(sock&&sock.connected)sock.emit('join',joinData())}
 function logout(){if(sock&&sock.connected)sock.emit('leave');LV.me=null;LV.convs={};root('login')}
 
 function liveStart(){if(!window.io)return;
  sock=io();
- sock.on('connect',()=>{if(LV.me)sock.emit('join',LV.me);presUI()});
+ sock.on('connect',()=>{if(LV.me)sock.emit('join',joinData());presUI()});
+ sock.on('denied',()=>{if(!LV.me)return;myId(true);LV.me.uid=myUid();sock.emit('join',joinData())});
  sock.on('disconnect',presUI);
  sock.on('presence',p=>{LV.pres=p;presUI()});
  sock.on('history',l=>{const old=LV.convs;LV.convs={};l.forEach(c=>{c.un=(old[c.key]&&old[c.key].un)||0;LV.convs[c.key]=c});if(S.s=='msgs')R(1);if(S.s=='lchat')lchatR(S.a);navDot()});
- sock.on('msg',onMsg)}
+ sock.on('msg',onMsg);sock.on('products',onProducts);sock.on('new-product',onNewProduct)}
 function onMsg(d){if(!LV.me)return;const k=d.conv.key;
  const c=LV.convs[k]||(LV.convs[k]={key:k,pid:d.conv.pid,buyerId:d.conv.buyerId,buyerName:d.conv.buyerName,msgs:[],un:0});
  if(c.msgs.some(m=>m.id==d.msg.id))return;c.msgs.push(d.msg);c.buyerName=d.conv.buyerName;
@@ -347,7 +352,8 @@ function onMsg(d){if(!LV.me)return;const k=d.conv.key;
 /* Indicadores */
 function presUI(){const p=LV.pres||{sellers:0,total:0},ok=sock&&sock.connected;
  const a=$('#pres');if(a)a.textContent=ok?`🟢 ${p.total} conectado${p.total==1?'':'s'} ahora · ${p.sellers} vendedor${p.sellers==1?'':'es'} en línea`:(sock?'🔴 Conectando con el servidor…':'⚪ Modo local (sin servidor)');
- const b=$('#lst');if(b)b.innerHTML=!ok?'<span class="text-red-500">● reconectando…</span>':(LV.me&&LV.me.role=='seller')?'<span class="text-mint">● en línea</span>':p.sellers?'<span class="text-mint">● vendedor en línea</span>':'<span class="text-slate-400">○ sin vendedores ahora</span>'}
+ const b=$('#lst');if(b){let on=false;if(ok&&LV.me&&S.s=='lchat'){const[pid,bid]=String(S.a).split('|'),o=bid==LV.me.uid?(P(pid)||{}).own:bid;on=(p.uids||[]).includes(o)}
+  b.innerHTML=!ok?'<span class="text-red-500">● reconectando…</span>':on?'<span class="text-mint">● en línea</span>':'<span class="text-slate-400">○ desconectado</span>'}}
 function navDot(){const b=document.querySelector('#nav [aria-label="Mensajes"]');if(!b)return;b.classList.add('relative');
  const n=Object.values(LV.convs).reduce((a,c)=>a+(c.un||0),0);let d=b.querySelector('.ud');
  if(n&&!d){b.insertAdjacentHTML('beforeend','<span class="ud absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center"></span>');d=b.querySelector('.ud')}
@@ -356,11 +362,13 @@ function navDot(){const b=document.querySelector('#nav [aria-label="Mensajes"]')
 /* Abrir chat / ofertas */
 function openChat(pid){
  if(!window.io||!LV.me)return nav('chat',pid);
- if(LV.me.role=='seller'){toast('Eres Vendedor: las consultas llegan a Mensajes');return root('msgs')}
+ const pp=P(pid);if(pp&&(pp.own==LV.me.uid||pp.s==ME))return toast('Esta es tu publicación: las consultas llegan a Mensajes');
+ if(pp&&!pp.own)return toast('Producto de ejemplo: el chat funciona con publicaciones de otros estudiantes (botón +)');
  nav('lchat',pid+'|'+LV.me.uid)}
 function offerSend(id,v){const t='Hola, te ofrezco S/ '+v+' por '+P(id).t;
  if(!window.io||!LV.me){nav('chat',id);return send(id,t)}
- if(LV.me.role=='seller')return toast('Las ofertas las envían los compradores');
+ const pp=P(id);if(pp&&(pp.own==LV.me.uid||pp.s==ME))return toast('Esta es tu publicación');
+ if(pp&&!pp.own)return toast('Producto de ejemplo: las ofertas funcionan con publicaciones de otros estudiantes');
  const k=id+'|'+LV.me.uid;nav('lchat',k);lsend(k,t)}
 function lsend(k,t){const i=$('#ci');t=(t||(i&&i.value)||'').trim();if(!t)return;
  if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
@@ -369,7 +377,7 @@ function lsend(k,t){const i=$('#ci');t=(t||(i&&i.value)||'').trim();if(!t)return
  if(i){i.value='';i.focus()}}
 
 /* Pantallas */
-V.lchat=key=>{const[pid]=key.split('|'),p=P(pid)||{id:0,t:'Producto no disponible en este dispositivo',ph:[],e:'📦',mode:'venta',price:0,s:0},c=LV.convs[key],sl=LV.me.role=='seller',
+V.lchat=key=>{const[pid,bid]=key.split('|'),p=P(pid)||{id:0,t:'Producto no disponible en este dispositivo',ph:[],e:'📦',mode:'venta',price:0,s:0},c=LV.convs[key],sl=bid!=LV.me.uid,
  title=sl?esc(c?c.buyerName:'Comprador'):esc(SEL[p.s].n);
  LV.chips=sl?['¡Hola! Sí, sigue disponible 😊','Nos vemos en el punto seguro del campus','¿Cuánto ofreces?','¡Trato hecho! 🎉']:(p.id?aiChips(p):['¿Sigue disponible?']);
  return `<div class="h-full flex flex-col">${hd(title,'<span id="lst" class="text-xs font-semibold"></span>')}
@@ -383,12 +391,33 @@ function lchatR(k){const m=$('#ml');if(!m)return;const c=LV.convs[k];if(c)c.un=0
 function liveMsgs(){const sl=LV.me.role=='seller',l=Object.values(LV.convs).filter(c=>c.msgs.length).sort((a,b)=>b.msgs[b.msgs.length-1].ts-a.msgs[a.msgs.length-1].ts);
  return `<div class="p-5 pb-28"><div class="flex items-center justify-between mb-4"><h1 class="text-2xl font-bold">Mensajes</h1><span class="text-[11px] font-bold px-3 py-1 rounded-full ${sl?'bg-emerald-100 text-emerald-700':'bg-blue-100 text-blue-700'}">${sl?'🏷️ Vendedor':'🛒 Comprador'}</span></div>
  ${l.map(c=>{const p=P(c.pid),m=c.msgs[c.msgs.length-1],mine=m.uid==LV.me.uid;if(!p)return '';
-  return `<div onclick="nav('lchat','${c.key}')" class="flex gap-3 items-center py-3 border-b cursor-pointer"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm">${sl?esc(c.buyerName):esc(SEL[p.s].n)}</p><p class="text-xs text-slate-500 truncate">${esc(p.t)}</p><p class="text-xs truncate ${mine?'text-slate-400':'text-slate-700 font-semibold'}">${mine?'Tú: ':''}${esc(m.text)}</p></div><div class="flex flex-col items-end gap-1"><span class="text-[10px] text-slate-400">${tm(m.ts)}</span>${c.un?`<span class="min-w-[18px] h-[18px] px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center">${c.un}</span>`:''}</div></div>`}).join('')
- ||`<p class="text-center text-slate-400 py-16 text-sm">${sl?'Aún no hay consultas.<br>Cuando un comprador te escriba, aparecerá aquí en tiempo real.':'Aún no tienes conversaciones.<br>Abre un producto y toca el chat para escribirle al vendedor.'}</p>`}</div>`}
+  return `<div onclick="nav('lchat','${c.key}')" class="flex gap-3 items-center py-3 border-b cursor-pointer"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm">${c.buyerId!=LV.me.uid?esc(c.buyerName):esc(SEL[p.s].n)}</p><p class="text-xs text-slate-500 truncate">${esc(p.t)}</p><p class="text-xs truncate ${mine?'text-slate-400':'text-slate-700 font-semibold'}">${mine?'Tú: ':''}${esc(m.text)}</p></div><div class="flex flex-col items-end gap-1"><span class="text-[10px] text-slate-400">${tm(m.ts)}</span>${c.un?`<span class="min-w-[18px] h-[18px] px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center">${c.un}</span>`:''}</div></div>`}).join('')
+ ||`<p class="text-center text-slate-400 py-16 text-sm">${sl?'Aún no hay consultas.<br>Cuando alguien te escriba por una de tus publicaciones, aparecerá aquí en privado y en tiempo real.':'Aún no tienes conversaciones.<br>Abre una publicación de otro estudiante y toca el chat para escribirle en privado.'}</p>`}</div>`}
 const _vMsgs=V.msgs;V.msgs=a=>(window.io&&LV.me)?liveMsgs():_vMsgs(a);
 
 /* Tras cada render: pintar mensajes, punto de no leídos y estado de conexión */
 const _R=R;R=function(keep){_R(keep);if(S.s=='lchat')lchatR(S.a);navDot();presUI()};
+
+/* ===== Publicaciones compartidas en vivo ===== */
+const RS={};/* publicadores remotos: uid -> índice en SEL */
+function sellerIdx(uid,name,cp){if(LV.me&&uid==LV.me.uid)return ME;let i=RS[uid];
+ if(i==null){SEL.push({n:name,r:5,c:0,car:'Estudiante UPC',cp,v:new Date().getFullYear(),ci:'—'});i=RS[uid]=SEL.length-1}
+ else{SEL[i].n=name;SEL[i].cp=cp}return i}
+function addRemote(d){if(!d||!d.id||PR.some(p=>p.id==d.id))return false;
+ const s=sellerIdx(d.ownerUid,d.ownerName,d.cp),mine=s==ME;if(mine)SEL[ME].cp=d.cp;
+ PR.unshift({id:d.id,t:d.t,ph:d.ph,cat:d.cat,mode:d.mode,price:d.price,rent:d.rent,dep:d.dep,cond:d.cond,d:mine?0.3:+(DK[d.cp]+((d.id*13)%9)/10).toFixed(1),s,x:50,y:44,ts:99,desc:d.desc,e:'📦',own:d.ownerUid,remote:!mine});
+ return true}
+function refreshCatalog(){if(S.s=='home')gridR();else if(S.s=='map'||S.s=='sedes')R(1)}
+function onNewProduct(d){if(!LV.me)return;if(addRemote(d)){refreshCatalog();toast('🆕 '+d.ownerName+' publicó: '+String(d.t).slice(0,30))}}
+function onProducts(list){if(!LV.me)return;list=list||[];let n=0;list.forEach(d=>{if(addRemote(d))n++});
+ /* si el servidor se reinició, vuelvo a subir mis publicaciones */
+ const have=new Set(list.map(d=>d.id));PR.filter(p=>p.id>100&&!p.remote&&p.s==ME&&!have.has(p.id)).forEach(p=>shareProduct(p,true));
+ if(n)refreshCatalog()}
+function shareProduct(p,quiet){if(!sock||!sock.connected||!LV.me)return;
+ sock.emit('new-product',{id:p.id,t:p.t,ph:p.ph,cat:p.cat,mode:p.mode,price:p.price,rent:p.rent,dep:p.dep,cond:p.cond,cp:SEL[ME].cp,desc:p.desc},r=>{
+  if(!r||(r.ok&&r.id==p.id))return;
+  if(r.error){if(!quiet)toast('Se publicó solo en tu dispositivo: '+r.error);return}
+  if(r.id&&r.id!=p.id){p.id=r.id;save()}})}
 liveStart();
 
 R();
