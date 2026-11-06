@@ -1,10 +1,11 @@
 /* U2U · servidor de tiempo real (Express + Socket.io)
  * - Sirve la app desde /public
- * - Sin registro: cada dispositivo entra con nombre + rol (buyer | seller)
- * - Chat: un comprador escribe sobre un producto; los vendedores conectados (y el dueño
- *   de la publicación) lo reciben al instante y cualquiera puede responder.
- * - Publicaciones: lo que alguien publica con "+" se guarda en el servidor, se reenvía a
- *   todos los demás en vivo y se entrega a quien entre después.
+ * - Sin registro: cada dispositivo entra con nombre + rol, pero con una identidad propia
+ *   (uid público + secreto privado) para que nadie pueda suplantar a otro.
+ * - Publicaciones: lo que alguien publica con "+" se guarda, se reenvía en vivo a todos
+ *   los demás y se entrega a quien entre después.
+ * - Chat PRIVADO por producto: cada conversación es (producto + comprador) y solo la ven
+ *   el comprador y el dueño de ese producto. Nadie más recibe esos mensajes.
  * - Todo vive en memoria (se borra al reiniciar el servidor): ideal para demo.
  */
 const path = require('path');
@@ -19,24 +20,30 @@ const io = new Server(server, { maxHttpBufferSize: 1e6 }); // 1 MB por mensaje (
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
 
-const MAX_CONVS = 500;  // conversaciones guardadas en memoria
-const MAX_MSGS = 200;   // mensajes por conversación
-const MAX_PRODUCTS = 50; // publicaciones guardadas (las más antiguas se descartan)
+const MAX_CONVS = 500;   // conversaciones guardadas en memoria
+const MAX_MSGS = 200;    // mensajes por conversación
+const MAX_PRODUCTS = 50; // publicaciones en el catálogo compartido (las más antiguas se descartan)
 const MAX_PHOTOS = 3, MAX_PHOTO = 250000, MAX_TOTAL = 450000; // tamaños de fotos (caracteres base64)
 const CATS = ['Cámaras', 'Laptops', 'Calculadoras', 'Herramientas', 'Libros', 'Audio', 'Ropa'];
 const MODES = ['venta', 'alquiler', 'ambos'];
 const CONDS = ['Nuevo', 'Como nuevo', 'Usado'];
 
 const convs = new Map();    // key "pid|buyerId" -> { key, pid, buyerId, buyerName, msgs: [] }
-const products = new Map(); // id -> publicación
+const products = new Map(); // id -> publicación (catálogo compartido)
+const owners = new Map();   // pid -> uid del dueño (se conserva aunque la publicación salga del catálogo)
+const auth = new Map();     // uid -> secreto (quien llegó primero con ese uid es su dueño)
 let lastId = Date.now();
 
+const ownerOf = (pid) => owners.get(pid);
 const presence = () => {
-  const s = io.sockets.adapter.rooms.get('sellers');
-  return { sellers: s ? s.size : 0, total: io.engine.clientsCount };
+  const r = io.sockets.adapter.rooms, s = r.get('sellers');
+  return {
+    sellers: s ? s.size : 0,
+    total: io.engine.clientsCount,
+    uids: [...r.keys()].filter((k) => k.startsWith('u:')).map((k) => k.slice(2)), // quién está en línea
+  };
 };
 const num = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
-const ownerOf = (pid) => (products.get(pid) || {}).ownerUid;
 
 /* Valida y limpia una publicación recibida (nunca confiamos en el cliente) */
 function cleanProduct(d, me) {
@@ -77,10 +84,18 @@ io.on('connection', (socket) => {
   socket.data = {};
   io.emit('presence', presence()); // avisa a todos que alguien abrió el enlace
 
-  // Entrada sin fricción: solo nombre + rol
+  /* Entrada sin fricción: nombre + rol. La identidad (uid + secreto) la genera el dispositivo. */
   socket.on('join', (d) => {
     d = d || {};
-    const uid = String(d.uid || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || 'u_' + String(socket.id).slice(0, 8);
+    const uid = String(d.uid || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24);
+    const secret = String(d.secret || '').slice(0, 64);
+    if (uid.length < 6 || secret.length < 16) return socket.emit('denied');
+    const known = auth.get(uid);
+    if (known && known !== secret) return socket.emit('denied'); // intento de suplantación
+    if (!known) {
+      auth.set(uid, secret);
+      if (auth.size > 5000) auth.delete(auth.keys().next().value);
+    }
     const name = String(d.name || '').trim().slice(0, 24) || 'Anónimo';
     const role = d.role === 'seller' ? 'seller' : 'buyer';
 
@@ -89,12 +104,12 @@ io.on('connection', (socket) => {
 
     socket.data = { uid, name, role, hits: [], pubs: [] };
     socket.join('u:' + uid);
-    if (role === 'seller') socket.join('sellers');
+    if (role === 'seller') socket.join('sellers'); // solo para el contador de la pantalla de entrada
 
-    // Historial: el vendedor ve todo; los demás, lo suyo y lo de sus publicaciones
-    const list = [...convs.values()].filter((c) => role === 'seller' || c.buyerId === uid || ownerOf(c.pid) === uid);
+    // Historial PRIVADO: solo mis conversaciones como comprador o como dueño del producto
+    const list = [...convs.values()].filter((c) => c.buyerId === uid || ownerOf(c.pid) === uid);
     socket.emit('history', list);
-    socket.emit('products', [...products.values()]); // catálogo compartido
+    socket.emit('products', [...products.values()]); // catálogo compartido (público)
     io.emit('presence', presence());
   });
 
@@ -112,12 +127,15 @@ io.on('connection', (socket) => {
     if (r.error) return reply({ error: r.error });
     const p = r.p;
 
-    // Reenvío idempotente: si ya existe con ese id y es mío, no se duplica
-    const ex = p.id && products.get(p.id);
-    if (ex) return reply(ex.ownerUid === me.uid ? { ok: true, id: ex.id } : { error: 'Publicación duplicada' });
-
-    if (!p.id) p.id = lastId = Math.max(Date.now(), lastId + 1);
+    if (p.id) {
+      const ow = owners.get(p.id);
+      if (ow && ow !== me.uid) return reply({ error: 'Publicación duplicada' }); // nadie puede apropiarse de un id
+      if (products.has(p.id)) return reply({ ok: true, id: p.id });               // reenvío idempotente
+    } else {
+      p.id = lastId = Math.max(Date.now(), lastId + 1);
+    }
     me.pubs.push(now);
+    owners.set(p.id, me.uid);
     products.set(p.id, p);
     if (products.size > MAX_PRODUCTS) products.delete(products.keys().next().value);
 
@@ -125,6 +143,7 @@ io.on('connection', (socket) => {
     reply({ ok: true, id: p.id });
   });
 
+  /* Chat privado: solo entre el comprador y el dueño del producto */
   socket.on('send', (d, ack) => {
     const reply = (o) => typeof ack === 'function' && ack(o);
     const me = socket.data;
@@ -141,17 +160,17 @@ io.on('connection', (socket) => {
     me.hits.push(now);
 
     const pid = parseInt(d.pid, 10);
-    if (!pid) return reply({ error: 'Producto inválido' });
+    const owner = ownerOf(pid);
+    if (!pid || !owner) return reply({ error: 'Producto de ejemplo: chatea con publicaciones de otros estudiantes' });
 
-    // Responde como vendedor: un vendedor, o el dueño de la publicación. Si no, es un comprador.
-    const isOwner = ownerOf(pid) === me.uid;
     let buyerId, from;
-    if (d.buyerId && String(d.buyerId) !== me.uid) {
-      if (me.role !== 'seller' && !isOwner) return reply({ error: 'No puedes responder esta conversación' });
-      buyerId = String(d.buyerId);
+    if (owner === me.uid) {
+      // soy el dueño: solo puedo responder a una conversación que ya existe
+      buyerId = String(d.buyerId || '');
+      if (!convs.has(pid + '|' + buyerId)) return reply({ error: 'Conversación no encontrada' });
       from = 'seller';
     } else {
-      if (isOwner) return reply({ error: 'Esta es tu propia publicación' });
+      // cualquier otro usuario es comprador y solo escribe en SU conversación
       buyerId = me.uid;
       from = 'buyer';
     }
@@ -159,7 +178,6 @@ io.on('connection', (socket) => {
 
     let c = convs.get(key);
     if (!c) {
-      if (from !== 'buyer') return reply({ error: 'Conversación no encontrada' });
       if (convs.size >= MAX_CONVS) convs.delete(convs.keys().next().value);
       c = { key, pid, buyerId, buyerName: me.name, msgs: [] };
       convs.set(key, c);
@@ -177,15 +195,15 @@ io.on('connection', (socket) => {
     c.msgs.push(msg);
     if (c.msgs.length > MAX_MSGS) c.msgs.shift();
 
-    // Llega al comprador, a todos los vendedores conectados y al dueño de la publicación
-    let to = io.to('u:' + buyerId).to('sellers');
-    const owner = ownerOf(pid);
-    if (owner) to = to.to('u:' + owner);
-    to.emit('msg', { conv: { key, pid, buyerId, buyerName: c.buyerName }, msg });
+    // Solo dos destinatarios: el comprador y el dueño (con todos sus dispositivos)
+    io.to('u:' + buyerId).to('u:' + owner).emit('msg', {
+      conv: { key, pid, buyerId, buyerName: c.buyerName },
+      msg,
+    });
     reply({ ok: true });
   });
 
-  // Cerrar sesión: deja de recibir mensajes y de contar como vendedor en línea
+  // Cerrar sesión: deja de recibir mensajes y de contar como en línea
   socket.on('leave', () => {
     if (socket.data.uid) socket.leave('u:' + socket.data.uid);
     socket.leave('sellers');
