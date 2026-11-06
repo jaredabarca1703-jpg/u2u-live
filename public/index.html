@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>U2U · Compra, Vende, Comparte (en vivo)</title>
+<title>U2U · Compra, Vende, Alquila</title>
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={theme:{extend:{colors:{brand:'#3b82f6',mint:'#10b981',navy:'#1e2a78'}}}}</script>
@@ -47,28 +47,28 @@ const SEL=[{n:'María Fernanda',r:4.9,c:18,car:'Comunicación',cp:0,v:2026},{n:'
 const ME=4;
 const U=k=>'https://images.unsplash.com/photo-'+k+'?auto=format&fit=crop&w=600&q=80';
 let PR=[
-{id:1,t:'Cámara Canon EOS R50',ph:['cam','cam2'],cat:'Cámaras',mode:'ambos',price:1800,rent:60,dep:200,cond:'Como nuevo',d:1.2,s:0,x:26,y:26,ts:9,desc:'Cámara mirrorless en excelente estado. Incluye batería, cargador y correa original. Ideal para proyectos de fotografía y audiovisual.'},
+{id:1,t:'Cámara Canon EOS R50',ph:['cam','cam2'],cat:'Cámaras',mode:'ambos',price:1800,rent:60,dep:200,cond:'Semi nuevo',d:1.2,s:0,x:26,y:26,ts:9,desc:'Cámara mirrorless en excelente estado. Incluye batería, cargador y correa original. Ideal para proyectos de fotografía y audiovisual.'},
 {id:2,t:'MacBook Air M2',ph:['mac'],cat:'Laptops',mode:'venta',price:2500,cond:'Usado',d:1.5,s:1,x:55,y:18,ts:8,desc:'Equipo en buen estado, batería sana, con cargador original. Perfecto para diseño y programación.'},
 {id:3,t:'Trípode profesional Weifeng',ph:['tri'],cat:'Cámaras',mode:'alquiler',rent:30,dep:50,cond:'Usado',d:1.8,s:2,x:72,y:42,ts:7,desc:'Trípode ligero y estable con rótula fluida y bolso de transporte.'},
 {id:4,t:'Calculadora Casio ClassWiz fx-82LA',ph:['calc'],cat:'Calculadoras',mode:'ambos',price:55,rent:10,dep:30,cond:'Usado',d:2,s:3,x:18,y:50,ts:6,desc:'Calculadora científica permitida en exámenes. Pantalla en perfecto estado.'},
-{id:5,t:'Máquina de coser Brother GS2700',ph:['sew'],cat:'Herramientas',mode:'alquiler',rent:70,dep:150,cond:'Como nuevo',d:2.4,s:1,x:45,y:58,ts:5,desc:'Máquina familiar con accesorios básicos. Ideal para proyectos de diseño de moda.'},
+{id:5,t:'Máquina de coser Brother GS2700',ph:['sew'],cat:'Herramientas',mode:'alquiler',rent:70,dep:150,cond:'Semi nuevo',d:2.4,s:1,x:45,y:58,ts:5,desc:'Máquina familiar con accesorios básicos. Ideal para proyectos de diseño de moda.'},
 {id:6,t:'Escalímetro triangular 30 cm',ph:['esc'],cat:'Herramientas',mode:'venta',price:5,cond:'Nuevo',d:2.6,s:2,x:62,y:34,ts:4,desc:'Escalímetro con 6 escalas, ideal para planos de arquitectura e ingeniería.'},
 {id:7,t:'Regla T para arquitectura 1 m',ph:['regla'],cat:'Herramientas',mode:'venta',price:8,cond:'Usado',d:3.2,s:3,x:84,y:66,ts:3,desc:'Regla T de 1 m para mesa de dibujo.'},
 {id:8,t:'Micrófono RØDE VideoMicro',ph:['mic'],cat:'Audio',mode:'alquiler',rent:60,dep:100,cond:'Usado',d:3,s:0,x:82,y:30,ts:2,desc:'Micrófono on-camera con protector antiviento y cable espiral.'},
 {id:9,t:'Libros de Ingeniería (pack de 4)',ph:['pack'],e:'📚',cat:'Libros',mode:'venta',price:40,cond:'Usado',d:3.4,s:3,x:12,y:70,ts:1,desc:'Pack de 4 libros de cálculo, estática y materiales.'},
-{id:10,t:'Dron DJI Mini 3 Pro',ph:['dron'],e:'🚁',cat:'Cámaras',mode:'ambos',price:2100,rent:120,dep:400,cond:'Como nuevo',s:5,x:50,y:50,ts:20,desc:'Excelente para tomas aéreas y topografía. Incluye 3 baterías, control y hélices extra.'},
+{id:10,t:'Dron DJI Mini 3 Pro',ph:['dron'],e:'🚁',cat:'Cámaras',mode:'ambos',price:2100,rent:120,dep:400,cond:'Semi nuevo',s:5,x:50,y:50,ts:20,desc:'Excelente para tomas aéreas y topografía. Incluye 3 baterías, control y hélices extra.'},
 {id:11,t:'Libro Hidráulica de Canales',ph:['libro'],e:'📘',cat:'Libros',mode:'alquiler',rent:15,dep:40,cond:'Usado',s:5,x:50,y:50,ts:19,desc:'Libro base del curso, edición reciente y sin subrayados.'},
 {id:12,t:'Casco blanco de obra 3M',ph:['casco'],e:'⛑️',cat:'Herramientas',mode:'venta',price:35,cond:'Nuevo',s:6,x:50,y:50,ts:18,desc:'Casco certificado, requisito para visitas a obra y laboratorio.'},
-{id:13,t:'iPad Pro M1 + Apple Pencil',ph:['ipad'],e:'📱',cat:'Laptops',mode:'venta',price:3100,cond:'Como nuevo',s:7,x:50,y:50,ts:17,desc:'Impecable, ideal para apuntes y apps de CAD o dibujo digital.'},
+{id:13,t:'iPad Pro M1 + Apple Pencil',ph:['ipad'],e:'📱',cat:'Laptops',mode:'venta',price:3100,cond:'Semi nuevo',s:7,x:50,y:50,ts:17,desc:'Impecable, ideal para apuntes y apps de CAD o dibujo digital.'},
 {id:14,t:'Uniforme scrub médico (talla M)',ph:['scrub'],e:'🥼',cat:'Ropa',mode:'venta',price:65,cond:'Nuevo',s:8,x:50,y:50,ts:16,desc:'Azul marino, nuevo en bolsa. Para prácticas de laboratorio y salud.'},
 {id:15,t:'Botas punta de acero CAT',ph:['botas'],e:'🥾',cat:'Ropa',mode:'ambos',price:180,rent:20,dep:50,cond:'Usado',s:9,x:50,y:50,ts:15,desc:'Talla 42. Para entrar a laboratorio o visitas de campo sin problemas.'},
-{id:16,t:'Kit Arduino Uno + sensores',ph:['arduino'],e:'🔌',cat:'Laptops',mode:'venta',price:120,cond:'Como nuevo',s:9,x:50,y:50,ts:14,desc:'Proyectos de electrónica listos para ensamblar. Incluye cables y protoboard.'},
+{id:16,t:'Kit Arduino Uno + sensores',ph:['arduino'],e:'🔌',cat:'Laptops',mode:'venta',price:120,cond:'Semi nuevo',s:9,x:50,y:50,ts:14,desc:'Proyectos de electrónica listos para ensamblar. Incluye cables y protoboard.'},
 {id:17,t:'Monitor LG 27" Full HD',ph:['monitor'],e:'🖥️',cat:'Laptops',mode:'venta',price:450,cond:'Usado',s:5,x:50,y:50,ts:13,desc:'Doble pantalla para Costos y presupuestos, Excel y programación.'},
 {id:18,t:'Apuntes Costos y Presupuestos',ph:['apuntes'],e:'📝',cat:'Libros',mode:'venta',price:15,cond:'Nuevo',s:7,x:50,y:50,ts:12,desc:'Fórmulas, ACU y plantillas impresas, listas para el examen.'},
 {id:19,t:'Calculadora HP Prime',ph:['hpprime'],e:'🧮',cat:'Calculadoras',mode:'ambos',price:350,rent:25,dep:100,cond:'Usado',s:8,x:50,y:50,ts:11,desc:'Calculadora gráfica ideal para ingeniería. Permitida en exámenes.'},
-{id:20,t:'Mandil de laboratorio (talla S)',ph:['mandil'],e:'🥼',cat:'Ropa',mode:'venta',price:30,cond:'Como nuevo',s:8,x:50,y:50,ts:10,desc:'Mandil blanco de algodón, lavado una sola vez.'},
+{id:20,t:'Mandil de laboratorio (talla S)',ph:['mandil'],e:'🥼',cat:'Ropa',mode:'venta',price:30,cond:'Semi nuevo',s:8,x:50,y:50,ts:10,desc:'Mandil blanco de algodón, lavado una sola vez.'},
 {id:21,t:'Teclado mecánico Keychron K2',ph:['teclado'],e:'⌨️',cat:'Laptops',mode:'venta',price:190,cond:'Usado',s:6,x:50,y:50,ts:9,desc:'Inalámbrico, switches marrones. Perfecto para programar o escribir tesis.'},
-{id:22,t:'Tablet gráfica Wacom Intuos',ph:['wacom'],e:'🖊️',cat:'Laptops',mode:'ambos',price:280,rent:20,dep:60,cond:'Como nuevo',s:9,x:50,y:50,ts:8,desc:'Ideal para ilustración digital y edición de fotos.'},
+{id:22,t:'Tablet gráfica Wacom Intuos',ph:['wacom'],e:'🖊️',cat:'Laptops',mode:'ambos',price:280,rent:20,dep:60,cond:'Semi nuevo',s:9,x:50,y:50,ts:8,desc:'Ideal para ilustración digital y edición de fotos.'},
 {id:23,t:'Kit de dibujo técnico completo',ph:['kit'],e:'📐',cat:'Herramientas',mode:'venta',price:45,cond:'Nuevo',s:6,x:50,y:50,ts:7,desc:'Escuadras, compás, rapidógrafos y plantillas para planos.'},
 {id:24,t:'Nivel de ingeniero Topcon + trípode',ph:['nivel'],e:'📏',cat:'Herramientas',mode:'alquiler',rent:80,dep:300,cond:'Usado',s:5,x:50,y:50,ts:6,desc:'Para prácticas de topografía y nivelación en campo. Incluye mira y estuche.'}];
 const ST={fav:[10,13],orders:[],chats:{10:[{m:0,t:'¡Hola! Sí, el dron tiene sus 3 baterías al 100% 🔋',h:'10:24'}],1:[{m:0,t:'¡Hola Jared! Sí, la cámara sigue disponible 😊',h:'10:24'}],3:[{m:1,t:'¿Sigue disponible el trípode?',h:'Ayer'},{m:0,t:'Sí, te espero en la puerta del campus',h:'Ayer'}]},off:{},mine:[]};
@@ -81,7 +81,7 @@ const price=(p,m)=>{m=m||p.mode;return m=='alquiler'?`${sol(p.rent)}<small class
 const tag=m=>m=='venta'?['Venta','bg-emerald-100 text-emerald-700']:m=='alquiler'?['Alquiler','bg-sky-100 text-sky-700']:['Venta · Alquiler','bg-violet-100 text-violet-700'];
 const stars=n=>'★'.repeat(Math.round(n))+'☆'.repeat(5-Math.round(n));
 /* =================== NAVEGACIÓN =================== */
-let S={s:'login',a:null,st:[],vm:'venta'},F={tab:'Todo',cat:'Todo',cp:-1,sort:'d',q:'',car:'Todas'},CO={},PUB={},PT='pub',STEP=1;
+let S={s:'login',a:null,st:[],vm:'venta'},F={tab:'Todo',cat:'Todo',cp:-1,sort:'d',q:'',car:'Todas',cond:'Todos'},CO={},PUB={},PT='pub',STEP=1;
 const NAVS=['home','map','msgs','profile'];
 function nav(s,a){S.st.push({s:S.s,a:S.a});S.s=s;S.a=a;R()}
 function back(){const p=S.st.pop()||{s:'home'};S.s=p.s;S.a=p.a;R()}
@@ -102,6 +102,7 @@ function fav(id){const i=ST.fav.indexOf(id);i<0?ST.fav.push(id):ST.fav.splice(i,
 /* =================== TARJETA (estilo Marketplace) =================== */
 const card=p=>{const t=tag(p.mode);return `<div onclick="openP(${p.id})" class="cursor-pointer active:scale-[.97] transition">
  <div class="relative aspect-square rounded-2xl overflow-hidden bg-slate-100">${pic(p)}
+  <span class="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-navy shadow-sm">${p.cond}</span>${p.status=='reserved'||p.status=='sold'?`<div class="absolute inset-0 bg-black/45 grid place-items-center"><span class="bg-white text-navy text-xs font-extrabold px-3 py-1 rounded-full">${p.status=='sold'?'Vendido':'Reservado'}</span></div>`:''}
   <button onclick="event.stopPropagation();fav(${p.id})" class="absolute top-2 right-2 bg-white/90 rounded-full p-1.5 shadow"><i data-lucide="heart" class="w-4 h-4 ${ST.fav.includes(p.id)?'fill-red-500 text-red-500':''}"></i></button>
   <span class="absolute bottom-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${t[1]}">${t[0]}</span></div>
  <p class="font-extrabold mt-1.5 text-[15px] leading-none">${price(p)}${fairB(p)}</p>
@@ -109,18 +110,16 @@ const card=p=>{const t=tag(p.mode);return `<div onclick="openP(${p.id})" class="
  <p class="text-[11px] text-slate-500 truncate">📍 ${CAMP[SEL[p.s].cp]} · ${p.d} km</p></div>`};
 /* =================== PANTALLAS =================== */
 const V={
-login(){const u=LV.pref||{};return `<div class="px-7 pt-12 pb-8"><img src="${IM.logo}" class="w-64 mx-auto">
- <h1 class="text-2xl font-bold text-brand text-center mt-6">¡Bienvenido!</h1><p class="text-slate-500 text-sm text-center mb-6">Entra en 5 segundos: solo tu nombre y tu rol</p>
- <label class="text-xs font-semibold">Tu nombre</label>
- <input id="un" class="inp" maxlength="24" placeholder="Ej: Ana" autocomplete="off" value="${esc(u.name||'')}" onkeydown="event.key=='Enter'&&login()">
- <label class="text-xs font-semibold">¿Con qué rol entras?</label>
- <div class="grid grid-cols-2 gap-3 mt-1">${[['buyer','🛒','Comprador','Busca y pregunta'],['seller','🏷️','Vendedor','Recibe y responde']].map(r=>`<button type="button" data-role="${r[0]}" onclick="setRole('${r[0]}')" class="rl rounded-2xl border-2 p-3 text-center transition ${LV.role==r[0]?'border-brand bg-blue-50':'border-slate-200'}"><span class="text-2xl">${r[1]}</span><b class="block text-sm">${r[2]}</b><span class="text-[11px] text-slate-500">${r[3]}</span></button>`).join('')}</div>
- <p id="er" class="text-red-500 text-xs h-5 mt-2"></p>
+login(){const u=LV.pref||{};return `<div class="px-7 pt-14 pb-8"><img src="${IM.logo}" class="w-60 mx-auto">
+ <h1 class="text-[26px] font-extrabold text-navy text-center mt-7 leading-tight">Compra, vende y alquila<br>entre estudiantes</h1>
+ <p class="text-slate-500 text-sm text-center mt-2 mb-7">Entra en 5 segundos. Solo escribe tu nombre.</p>
+ <input id="un" class="inp text-center text-lg" maxlength="24" placeholder="¿Cómo te llamas?" autocomplete="off" value="${esc(u.name||'')}" onkeydown="event.key=='Enter'&&login()">
+ <p id="er" class="text-red-500 text-xs h-5 text-center"></p>
  <button class="btn" onclick="login()">Entrar</button>
  <p id="pres" class="text-center text-xs text-slate-400 mt-4"></p>
- <div class="mt-4 bg-blue-50 text-blue-800 text-xs rounded-xl p-3 flex gap-2"><i data-lucide="zap" class="w-5 shrink-0"></i><span>Abre este mismo enlace en otro dispositivo: uno entra como <b>Comprador</b> y el otro como <b>Vendedor</b>, y chateen en vivo.</span></div></div>`},
+ <div class="grid grid-cols-3 gap-2 mt-6 text-center text-[11px] text-slate-600">${[['🛍️','Compra y alquila'],['📸','Publica con IA'],['🔐','Entrega con código']].map(a=>`<div class="bg-blue-50 rounded-2xl py-3"><div class="text-xl">${a[0]}</div>${a[1]}</div>`).join('')}</div></div>`},
 home(){const l=HL();
- return `<div class="pb-28"><div class="px-5 pt-7 flex items-start justify-between"><div><h1 class="text-[26px] font-bold text-navy leading-tight">Hola, ${esc(uname())} <span class="text-xl">👋</span></h1><p class="text-[17px] text-slate-500 mt-1">${LV.me&&LV.me.role=='seller'?'Responde a tus compradores en vivo 💬':'¿Qué necesitas este ciclo?'}</p><button onclick="sedeM()" class="mt-2 text-xs font-bold bg-blue-50 text-brand rounded-full px-3 py-1.5">📍 ${F.cp<0?'Todas las sedes UPC':CAMP[F.cp]} ▾</button></div>
+ return `<div class="pb-28"><div class="px-5 pt-7 flex items-start justify-between"><div><h1 class="text-[26px] font-bold text-navy leading-tight">Hola, ${esc(uname())} <span class="text-xl">👋</span></h1><p class="text-[17px] text-slate-500 mt-1">¿Qué necesitas este ciclo?</p><button onclick="sedeM()" class="mt-2 text-xs font-bold bg-blue-50 text-brand rounded-full px-3 py-1.5">📍 ${F.cp<0?'Todas las sedes UPC':CAMP[F.cp]} ▾</button></div>
   <button onclick="notifM()" aria-label="Notificaciones" class="relative p-2 rounded-full bg-blue-50 text-brand mt-1"><i data-lucide="bell"></i><span class="absolute top-1.5 right-2 w-2 h-2 bg-pink-500 rounded-full"></span></button></div>
  <div class="px-5 mt-5"><div class="flex items-center bg-white rounded-2xl px-4 shadow-[0_6px_16px_rgba(30,42,120,.12)] border border-slate-100 focus-within:ring-2 focus-within:ring-brand/30"><i data-lucide="search" class="w-5 text-slate-400"></i><input value="${esc(F.q)}" oninput="F.q=this.value;gridR()" placeholder="Buscar productos" class="w-full bg-transparent py-3.5 px-3 text-[15px] outline-none"><button onclick="filtM()" aria-label="Filtros" class="text-slate-500"><i data-lucide="sliders-horizontal" class="w-5"></i></button></div></div>
  <div class="flex justify-between px-4 mt-6">${G.map(g=>`<button onclick="F.cat=F.cat=='${g[0]}'?'Todo':'${g[0]}';R(1)" class="flex flex-col items-center gap-2 w-[80px]"><span class="w-14 h-14 rounded-full grid place-items-center transition ${F.cat==g[0]?'bg-brand text-white shadow-md shadow-brand/30':'bg-blue-50 text-brand'}"><i data-lucide="${g[1]}" class="w-6 h-6"></i></span><span class="text-[10.5px] font-semibold text-center leading-tight text-navy">${g[0]}</span></button>`).join('')}</div>
@@ -133,8 +132,9 @@ home(){const l=HL();
  <div class="px-5 mt-3"><div class="relative h-40 rounded-2xl overflow-hidden border border-slate-200 shadow-md"><div id="mini-map" class="absolute inset-0 z-0"></div><div onclick="root('map')" class="absolute inset-0 z-[5] cursor-pointer"></div></div></div>
  <div class="px-5 mt-7 flex items-center justify-between"><h3 class="font-bold text-lg text-navy">Destacados</h3><select onchange="F.sort=this.value;gridR()" class="text-xs font-semibold text-slate-500 bg-transparent outline-none"><option value="d" ${F.sort=='d'?'selected':''}>Más cercanos</option><option value="p" ${F.sort=='p'?'selected':''}>Menor precio</option><option value="r" ${F.sort=='r'?'selected':''}>Más recientes</option></select></div>
  <div class="flex gap-2 overflow-x-auto no-sb px-5 mt-5 items-center"><span class="text-xs font-bold text-navy shrink-0">🎒 Para tu carrera</span>${CARR.map(c=>`<button class="chip ${F.car==c?'on':''}" onclick="F.car='${c}';R(1)">${c}</button>`).join('')}</div>
+ <div class="flex gap-2 overflow-x-auto no-sb px-5 mt-3 items-center"><span class="text-xs font-bold text-navy shrink-0">✨ Estado</span>${['Todos','Nuevo','Semi nuevo','Usado'].map(c=>`<button class="chip ${F.cond==c?'on':''}" onclick="F.cond='${c}';R(1)">${c}</button>`).join('')}</div>
  <div class="flex gap-2 overflow-x-auto no-sb px-5 mt-3"><button class="chip ${F.cp<0?'on':''}" onclick="F.cp=-1;R(1)">🎓 Todos los campus</button>${CAMP.map((c,i)=>`<button class="chip ${F.cp==i?'on':''}" onclick="F.cp=${i};R(1)">${c}</button>`).join('')}</div>
- <div class="flex gap-2 px-5 mt-3 items-center">${['Todo','Venta','Alquiler'].map(t=>`<button class="chip ${F.tab==t?'on':''}" onclick="F.tab='${t}';R(1)">${t}</button>`).join('')}<span id="cnt" class="ml-auto text-xs text-slate-400">${l.length} resultado${l.length==1?'':'s'}</span></div>
+ <div class="flex gap-2 px-5 mt-3 items-center">${['Todo','Venta','Alquiler'].map(t=>`<button class="chip ${F.tab==t?'on':''}" onclick="F.tab='${t}';R(1)">${t}</button>`).join('')}${filtN()?'<button class="chip" onclick="clrF()">✕ Limpiar filtros</button>':''}<span id="cnt" class="ml-auto text-xs text-slate-400">${l.length} resultado${l.length==1?'':'s'}</span></div>
  <div id="grid" class="px-5 mt-4 grid grid-cols-2 gap-x-3 gap-y-4">${gridH(l)}</div></div>`},
 detail(id){const p=P(id),s=SEL[p.s],am=p.mode=='ambos',al=p.mode=='alquiler'||(am&&S.vm=='alquiler'),n=Math.max(1,p.ph.length),rel=PR.filter(x=>x.cat==p.cat&&x.id!=id).slice(0,4),t=tag(p.mode);
  return `<div class="pb-28"><div class="relative h-80 bg-slate-100"><div id="car" onscroll="dots()" class="flex h-full overflow-x-auto snap-x snap-mandatory no-sb">${Array.from({length:n},(_,i)=>`<div class="min-w-full h-full snap-center">${pic(p,i)}</div>`).join('')}</div>
@@ -146,14 +146,14 @@ detail(id){const p=P(id),s=SEL[p.s],am=p.mode=='ambos',al=p.mode=='alquiler'||(a
   <p class="text-3xl font-extrabold text-brand mt-2">${al?price(p,'alquiler'):sol(ST.off[id]||p.price)}${!al&&ST.off[id]?` <span class="text-xs text-mint font-bold">oferta aceptada</span>`:''}</p>
   ${al?`<p class="text-xs text-slate-500">Depósito reembolsable: ${sol(p.dep||0)} (se preautoriza, no se cobra)</p>`:''}
   <div class="grid grid-cols-2 gap-2 mt-4 text-sm">${[['package','Condición',p.cond],['tag','Categoría',p.cat],['map-pin','Punto de encuentro',CAMP[s.cp]],['navigation','Distancia','a '+p.d+' km']].map(a=>`<div class="bg-slate-50 rounded-xl p-3"><i data-lucide="${a[0]}" class="w-4 text-brand"></i><p class="text-[11px] text-slate-500">${a[1]}</p><b class="text-[13px]">${a[2]}</b></div>`).join('')}</div>
-  ${aiCard(p)}<h3 class="font-bold mt-4">Descripción</h3><p class="text-sm text-slate-600">${esc(p.desc)}</p>
+  ${stH(p)}${carH(p)}${aiCard(p)}<h3 class="font-bold mt-4">Descripción</h3><p class="text-sm text-slate-600">${esc(p.desc)}</p>
   <div onclick="nav('seller',${p.s})" class="mt-4 border rounded-2xl p-3 flex items-center gap-3 cursor-pointer"><div class="w-12 h-12 rounded-full bg-brand text-white grid place-items-center font-bold">${s.n[0]}</div><div class="flex-1"><p class="font-bold text-sm">${s.n} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${s.car} · ${s.ci} ciclo · ${CAMP[s.cp]}</p><p class="text-xs text-amber-500">${stars(s.r)} <span class="text-slate-500">${s.r} (${s.c})</span></p></div><i data-lucide="chevron-right" class="text-slate-400"></i></div>
-  <div class="mt-3 bg-emerald-50 text-emerald-800 rounded-2xl p-3 text-xs flex gap-2"><i data-lucide="shield-check" class="w-5 shrink-0"></i><span><b>Punto Seguro UPC:</b> entrega en ${SD[s.cp].pt} de ${CAMP[s.cp]}. Ambos presentan carné UPC y se valida un código de entrega de 4 dígitos. Paga solo dentro de U2U.</span></div>
+  <div class="mt-3 bg-emerald-50 text-emerald-800 rounded-2xl p-3 text-xs flex gap-2"><i data-lucide="shield-check" class="w-5 shrink-0"></i><span><b>Punto Seguro UPC:</b> entrega en ${SD[s.cp].pt} de ${CAMP[s.cp]}. Ambos presentan carné UPC y la entrega se confirma con un código de 6 dígitos. Paga solo dentro de U2U.</span></div>
   <button onclick="toast('Reporte enviado. Gracias por cuidar la comunidad')" class="mt-3 text-xs text-slate-500 flex items-center gap-1"><i data-lucide="flag" class="w-3.5"></i>Reportar publicación</button>
   ${rel.length?`<h3 class="font-bold mt-5 mb-2">Similares</h3><div class="grid grid-cols-2 gap-3">${rel.map(card).join('')}</div>`:''}</div>
  <div class="absolute bottom-0 inset-x-0 bg-white border-t p-3 flex gap-2 z-20"><button onclick="openChat(${id})" class="p-3 border border-brand text-brand rounded-2xl"><i data-lucide="message-circle"></i></button>
   ${!al?`<button onclick="offerM(${id})" class="px-4 border border-brand text-brand rounded-2xl font-semibold text-sm">Hacer oferta</button>`:''}
-  <button onclick="startCO(${id},'${al?'alquiler':'venta'}')" class="btn flex-1">${al?'Alquilar ahora':'Comprar'}</button></div>`},
+  ${!al&&(p.status=='reserved'||p.status=='sold')?`<button class="btn flex-1 opacity-50" disabled>${p.status=='sold'?'Vendido':'Reservado por otro estudiante'}</button>`:`<button onclick="startCO(${id},'${al?'alquiler':'venta'}')" class="btn flex-1">${al?'Alquilar ahora':'Comprar'}</button>`}</div>`},
 seller(i){const s=SEL[i],l=PR.filter(p=>p.s==i);return hd('Perfil del vendedor')+`<div class="p-5 pb-24"><div class="flex items-center gap-4"><div class="w-16 h-16 rounded-full bg-brand text-white grid place-items-center text-2xl font-bold">${s.n[0]}</div><div><p class="font-bold">${s.n} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${s.car} · UPC</p><p class="text-xs text-amber-500">${stars(s.r)} ${s.r} (${s.c} reseñas)</p></div></div>
  <div class="grid grid-cols-3 text-center bg-blue-50 rounded-2xl py-3 mt-4 text-xs"><div><b class="block text-base">${l.length}</b>Publicaciones</div><div><b class="block text-base">${s.c}</b>Reseñas</div><div><b class="block text-base">${s.v}</b>Miembro desde</div></div>
  <div class="bg-emerald-50 text-emerald-800 text-xs rounded-xl p-3 mt-3 flex gap-2"><i data-lucide="shield-check" class="w-5"></i>Estudiante verificado con correo universitario</div>
@@ -172,11 +172,11 @@ map(){const l=mapL().sort((a,b)=>a.d-b.d);
  <p class="px-5 font-bold text-brand">${l.length} productos cerca de ti</p><div class="overflow-y-auto no-sb px-5 pb-28 divide-y">${l.map(p=>`<div onclick="openP(${p.id})" class="flex gap-3 py-3 cursor-pointer"><div class="w-20 h-20 rounded-xl overflow-hidden">${pic(p)}</div><div><p class="font-bold text-sm">${esc(p.t)}</p><span class="text-[10px] px-2 py-0.5 rounded-full ${tag(p.mode)[1]}">${tag(p.mode)[0]}</span><p class="font-extrabold text-brand">${price(p)}</p><p class="text-xs text-slate-500">📍 A ${p.d} km · ${CAMP[SEL[p.s].cp]}</p></div></div>`).join('')}</div></div></div>`},
 profile(){const me=PR.filter(p=>p.s==ME),n=me.length+ST.orders.length,fv=PR.filter(p=>ST.fav.includes(p.id)),tabs=[['pub','Publicaciones'],['fav','Favoritos'],['ord','Pedidos']];
  return `<div class="p-5 pb-28"><div class="flex justify-between"><h1 class="text-2xl font-bold">Mi cuenta</h1><button onclick="toast('Ajustes próximamente')"><i data-lucide="settings"></i></button></div>
- <div class="flex items-center gap-4 mt-4"><div class="w-16 h-16 rounded-full bg-brand text-white grid place-items-center text-2xl font-bold">${esc(uname())[0].toUpperCase()}</div><div><p class="font-bold">${esc(uname())} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${SEL[ME].car} · ${SEL[ME].ci} ciclo · ${CAMP[SEL[ME].cp]}</p><p class="text-xs text-amber-500">★ 4.8 (32)</p>${LV.me?`<span class="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${LV.me.role=='seller'?'bg-emerald-100 text-emerald-700':'bg-blue-100 text-blue-700'}">${LV.me.role=='seller'?'🏷️ Vendedor':'🛒 Comprador'}</span>`:''}</div></div>
+ <div class="flex items-center gap-4 mt-4"><div class="w-16 h-16 rounded-full bg-brand text-white grid place-items-center text-2xl font-bold">${esc(uname())[0].toUpperCase()}</div><div><p class="font-bold">${esc(uname())} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${SEL[ME].car} · ${SEL[ME].ci} ciclo · ${CAMP[SEL[ME].cp]}</p><p class="text-xs text-amber-500">★ 4.8 (32)</p></div></div>
  <div class="mt-4 bg-emerald-50 text-emerald-800 text-xs rounded-xl p-3 flex gap-2"><i data-lucide="shield-check" class="w-5"></i>Alumno verificado: carné UPC, DNI y correo @upc.edu.pe</div>
  <div class="mt-3 rounded-2xl p-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white flex items-center gap-3"><i data-lucide="leaf" class="w-9 h-9"></i><div><p class="font-bold">${n} artículo${n==1?'':'s'} reutilizado${n==1?'':'s'}</p><p class="text-xs opacity-90">≈ ${n*9} kg de CO₂ evitados (estimado)</p></div></div>
  <div class="grid grid-cols-3 mt-4 bg-slate-100 rounded-xl p-1 text-xs font-semibold">${tabs.map(t=>`<button onclick="PT='${t[0]}';R(1)" class="py-2 rounded-lg ${PT==t[0]?'bg-white shadow text-brand':'text-slate-500'}">${t[1]}</button>`).join('')}</div>
- <div class="mt-4">${PT=='pub'?`<div class="grid grid-cols-2 gap-3">${me.map(card).join('')||''}</div>${me.length?'':'<p class="text-center text-slate-400 py-8 text-sm">Aún no publicaste nada.<br>Pulsa + para vender o alquilar.</p>'}`:PT=='fav'?`<div class="grid grid-cols-2 gap-3">${fv.map(card).join('')}</div>${fv.length?'':'<p class="text-center text-slate-400 py-8 text-sm">Guarda productos con ♡</p>'}`:ST.orders.map((o,i)=>orderC(o,i)).join('')||'<p class="text-center text-slate-400 py-8 text-sm">Aún no tienes pedidos.</p>'}</div>
+ <div class="mt-4">${PT=='pub'?`<div class="grid grid-cols-2 gap-3">${me.map(card).join('')||''}</div>${me.length?'':'<p class="text-center text-slate-400 py-8 text-sm">Aún no publicaste nada.<br>Pulsa + para vender o alquilar.</p>'}`:PT=='fav'?`<div class="grid grid-cols-2 gap-3">${fv.map(card).join('')}</div>${fv.length?'':'<p class="text-center text-slate-400 py-8 text-sm">Guarda productos con ♡</p>'}`:ordersTab()}</div>
  <button onclick="manifM()" class="w-full mt-6 bg-blue-50 text-brand font-semibold py-3 rounded-2xl">💡 Manifiesto U2U · UPC</button>
  <button onclick="logout()" class="w-full mt-3 border border-brand text-brand font-semibold py-3 rounded-2xl">Cerrar sesión</button></div>`},
 co(){const p=P(CO.id),al=CO.mode=='alquiler',d=days(),b=al?p.rent*d:(ST.off[p.id]||p.price),dl=CO.del=='home'?15:0,tot=b+10+dl;
@@ -192,7 +192,8 @@ publish(){const D=PUB,a=D.ai,lb=t=>`<label class="text-xs font-semibold block mt
  const form=`${a?`<div class="mt-4 bg-purple-50 text-purple-700 rounded-xl p-3 text-xs font-semibold flex gap-2 items-center flex-wrap"><i data-lucide="sparkles" class="w-4"></i>Vision AI detectó:${(a.tags||[]).map(t=>`<span class="bg-white rounded-full px-2 py-0.5">${t}</span>`).join('')}</div>`:''}
  ${lb('Título')}<input class="inp" maxlength="60" value="${esc(D.t)}" oninput="PUB.t=this.value">
  ${lb('Categoría')}<select class="inp" onchange="PUB.cat=this.value">${CATS.slice(1).map(c=>`<option ${D.cat==c[0]?'selected':''}>${c[0]}</option>`).join('')}</select>
- ${lb('Estado')}<div class="flex gap-2 mt-1">${['Nuevo','Como nuevo','Usado'].map(c=>`<button onclick="PUB.cond='${c}';R(1)" class="chip ${D.cond==c?'on':''}">${c}</button>`).join('')}</div>
+ ${lb('Estado')}<div class="flex gap-2 mt-1">${['Nuevo','Semi nuevo','Usado'].map(c=>`<button onclick="PUB.cond='${c}';R(1)" class="chip ${D.cond==c?'on':''}">${c}</button>`).join('')}</div>
+ ${lb('¿Para qué carreras sirve?')}<div class="flex flex-wrap gap-2 mt-1">${CARR.slice(1).map(c=>`<button onclick="togCar('${c}')" class="chip ${(D.car||[]).includes(c)?'on':''}">${c}</button>`).join('')}</div><p class="text-[11px] text-slate-400 mt-1">Sin selección = sirve para todas las carreras.</p>
  ${lb('¿Qué quieres hacer?')}<div class="grid grid-cols-3 gap-2 mt-1">${[['venta','Vender'],['alquiler','Alquilar'],['ambos','Ambos']].map(x=>`<button onclick="PUB.mode='${x[0]}';R(1)" class="py-2.5 rounded-xl border-2 text-sm font-bold ${D.mode==x[0]?'border-brand bg-blue-50 text-brand':'border-slate-100 text-slate-500'}">${x[1]}</button>`).join('')}</div>
  ${D.mode!='alquiler'?`${lb('Precio de venta (S/)')}<input type="number" class="inp" value="${D.price}" oninput="PUB.price=this.value">${a&&a.price?`<button onclick="PUB.price=${a.price};R(1)" class="text-[11px] text-purple-600 font-semibold -mt-2 mb-2">✨ Sugerido por IA: ${sol(a.price)} · rango ${sol(Math.round(a.price*.9))} – ${sol(Math.round(a.price*1.08))}</button>`:''}`:''}
  ${D.mode!='venta'?`${lb('Alquiler por día (S/)')}<input type="number" class="inp" value="${D.rent}" oninput="PUB.rent=this.value">${a&&a.rent?`<button onclick="PUB.rent=${a.rent};R(1)" class="text-[11px] text-purple-600 font-semibold -mt-2 mb-2">✨ Sugerido por IA: ${sol(a.rent)}/día</button>`:''}${lb('Depósito de garantía (S/)')}<input type="number" class="inp" value="${D.dep}" oninput="PUB.dep=this.value">`:''}
@@ -206,16 +207,16 @@ publish(){const D=PUB,a=D.ai,lb=t=>`<label class="text-xs font-semibold block mt
  ${D.ph.length?`<div class="flex gap-2 mt-3 overflow-x-auto no-sb">${D.ph.map((f,i)=>`<div class="relative w-16 h-16 shrink-0 rounded-xl overflow-hidden"><img src="${src(f)}" class="w-full h-full object-cover"><button onclick="PUB.ph.splice(${i},1);R(1)" aria-label="Quitar" class="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full w-5 h-5 text-xs leading-none">×</button></div>`).join('')}</div>${form}`:'<p class="text-center text-slate-400 text-sm py-10">Elige una foto para empezar ✨</p>'}</div>
  <div class="absolute bottom-0 inset-x-0 bg-white border-t p-3"><button class="btn" onclick="pubGo()">Publicar ahora</button></div>`}};
 /* =================== LÓGICA =================== */
-function login(){const n=(($('#un')||{}).value||'').trim();if(n.length<2)return $('#er').textContent='Escribe tu nombre (mínimo 2 letras).';liveJoin(n,LV.role);root('home')}
+function login(){const n=(($('#un')||{}).value||'').trim();if(n.length<2)return $('#er').textContent='Escribe tu nombre (mínimo 2 letras).';liveJoin(n);root('home')}
 function dots(){const c=$('#car'),d=$('#dots');if(!c||!d)return;const i=Math.round(c.scrollLeft/c.clientWidth);d.innerHTML=[...c.children].map((_,n)=>`<span class="w-2 h-2 rounded-full ${n==i?'bg-white':'bg-white/50'}"></span>`).join('')}
 function sh(){const s=$('#sheet');s.dataset.o=s.dataset.o=='1'?'':'1';s.style.transform=s.dataset.o?'translateY(0)':'translateY(calc(100% - 230px))'}
 /* Home: filtros y grilla (el buscador conserva el foco al escribir) */
-const HL=()=>{const g=G.find(x=>x[0]==F.cat);return PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&(!g||g[2].includes(p.cat))&&(F.car=='Todas'||(PCAR[p.id]||[]).includes(F.car))&&(F.cp<0||SEL[p.s].cp==F.cp)&&p.t.toLowerCase().includes(F.q.toLowerCase())).sort((a,b)=>F.sort=='d'?a.d-b.d:F.sort=='p'?(a.price||a.rent)-(b.price||b.rent):b.ts-a.ts)};
+const HL=()=>{const g=G.find(x=>x[0]==F.cat);return PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&(!g||g[2].includes(p.cat))&&(F.car=='Todas'||carOk(p))&&(F.cond=='Todos'||p.cond==F.cond)&&p.status!='sold'&&(F.cp<0||SEL[p.s].cp==F.cp)&&p.t.toLowerCase().includes(F.q.toLowerCase())).sort((a,b)=>F.sort=='d'?a.d-b.d:F.sort=='p'?(a.price||a.rent)-(b.price||b.rent):b.ts-a.ts)};
 const gridH=l=>l.map(card).join('')||`<div class="col-span-2 text-center text-slate-400 py-8"><p>😕 Sin resultados.</p><button onclick="aiOpen(F.q||'Ayúdame a encontrar algo')" class="mt-3 px-4 py-2 rounded-full text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">✨ Preguntar a U2U AI</button></div>`;
 function gridR(){const l=HL();$('#grid').innerHTML=gridH(l);$('#cnt').textContent=l.length+' resultado'+(l.length==1?'':'s');lucide.createIcons()}
 function filtM(){M(`<div class="bg-white w-full rounded-t-3xl p-5 pop"><p class="font-bold text-lg mb-3">Filtrar por campus</p><div class="flex flex-wrap gap-2">${[-1,0,1,2,3].map(i=>`<button class="chip ${F.cp==i?'on':''}" onclick="F.cp=${i};X();R(1)">${i<0?'🎓 Todos':CAMP[i]}</button>`).join('')}</div><button class="btn mt-5" onclick="X()">Listo</button></div>`)}
 /* Mapa real de Lima */
-const mapL=()=>PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&p.t.toLowerCase().includes(F.q.toLowerCase())&&(F.cp<0||SEL[p.s].cp==F.cp)).sort((a,b)=>a.d-b.d);
+const mapL=()=>PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&p.t.toLowerCase().includes(F.q.toLowerCase())&&p.status!='sold'&&(F.cond=='Todos'||p.cond==F.cond)&&(F.car=='Todas'||carOk(p))&&(F.cp<0||SEL[p.s].cp==F.cp)).sort((a,b)=>a.d-b.d);
 function initMap(mini){const el=$(mini?'#mini-map':'#map');if(!el)return;
  if(!window.L){el.innerHTML='<div class="h-full grid place-items-center text-xs text-slate-400 bg-slate-100">Mapa no disponible sin conexión</div>';return}
  const m=L.map(el,{zoomControl:false,attributionControl:!mini,dragging:!mini,touchZoom:!mini,scrollWheelZoom:!mini,doubleClickZoom:!mini,boxZoom:false,keyboard:false}).setView(!mini&&F.cp>=0?LL[F.cp]:[-12.07,-77.02],mini?11:(F.cp>=0?14:12));
@@ -238,8 +239,8 @@ function send(id,t){const i=$('#ci');t=t||(i&&i.value.trim());if(!t)return;(ST.c
 function offerM(id){const p=P(id);M(`<div class="bg-white w-full rounded-t-3xl p-5 pop"><p class="font-bold text-lg">Hacer una oferta</p><p class="text-xs text-slate-500">Precio publicado: ${sol(p.price)}</p><input id="of" type="number" class="inp mt-3" value="${Math.round(p.price*.9)}"><div class="flex gap-2 mb-3">${[5,10,15].map(x=>`<button class="chip" onclick="of.value=${Math.round(p.price*(1-x/100))}">-${x}%</button>`).join('')}</div><button class="btn" onclick="X();offerSend(${id},of.value)">Enviar oferta</button><button class="w-full py-3 text-slate-500" onclick="X()">Cancelar</button></div>`)}
 /* Checkout y pago */
 const days=()=>Math.max(1,Math.round((new Date(CO.to)-new Date(CO.from))/864e5)+1);
-function startCO(id,mode){CO={id,mode,from:fd(1),to:fd(3),del:'meet',cp:SEL[P(id).s].cp,pay:'visa',terms:false};nav('co')}
-function pay(tot){M('<div class="bg-white w-full rounded-t-3xl p-8 text-center"><div class="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto"></div><p class="font-bold mt-4">Procesando pago...</p></div>');
+function startCO(id,mode){if(!coOk(id,mode))return;CO={id,mode,from:fd(1),to:fd(3),del:'meet',cp:SEL[P(id).s].cp,pay:'visa',terms:false};nav('co')}
+function pay(tot){if(window.io&&LV.me)return payLive();M('<div class="bg-white w-full rounded-t-3xl p-8 text-center"><div class="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto"></div><p class="font-bold mt-4">Procesando pago...</p></div>');
  setTimeout(()=>{const p=P(CO.id),code='#U2U-'+Math.floor(1e5+Math.random()*9e5);ST.orders.unshift({code,pin:String(1000+Math.floor(Math.random()*9000)),id:CO.id,k:CO.mode,tot,cp:CO.cp,del:CO.del,st:0,d:new Date().toLocaleDateString('es-PE')});save();
   M(`<div class="bg-white w-full rounded-t-3xl p-7 text-center pop"><div class="w-16 h-16 bg-emerald-100 text-mint rounded-full grid place-items-center mx-auto"><i data-lucide="check" class="w-9 h-9"></i></div><p class="font-extrabold text-xl mt-3">¡Compra exitosa!</p><p class="text-sm text-slate-500">Código <b>${code}</b>. Coordina la entrega con ${SEL[p.s].n} y lleva tu carné UPC.</p><button class="btn mt-5" onclick="X();PT='ord';root('profile')">Ver mi pedido</button><button class="w-full py-3 text-slate-500" onclick="X();root('home')">Seguir explorando</button></div>`)},2000)}
 const STS=['Pago confirmado','Coordinando entrega','Entregado','Finalizado'];
@@ -249,13 +250,13 @@ function orderC(o,i){const p=P(o.id);return `<div class="border rounded-2xl p-3 
 function rate(){M(`<div class="bg-white w-full rounded-t-3xl p-6 text-center pop"><p class="font-bold text-lg">¿Cómo fue tu experiencia?</p><div class="text-4xl text-amber-400 my-3">${[1,2,3,4,5].map(n=>`<button onclick="X();toast('¡Gracias por tu reseña de ${n} ★!')">★</button>`).join('')}</div></div>`)}
 /* Publicar con Vision AI */
 const SAMPLES=[
-{l:'Dron',ph:'dron',a:{t:'Dron DJI Mini 2 SE',cat:'Cámaras',cond:'Como nuevo',mode:'ambos',price:1850,rent:100,dep:350,tags:['Dron','Cámara 2.7K','Baterías'],desc:'Dron plegable con cámara 2.7K, ideal para topografía y tomas aéreas de proyectos. Incluye 2 baterías, control y estuche.'}},
+{l:'Dron',ph:'dron',a:{t:'Dron DJI Mini 2 SE',cat:'Cámaras',cond:'Semi nuevo',mode:'ambos',price:1850,rent:100,dep:350,tags:['Dron','Cámara 2.7K','Baterías'],desc:'Dron plegable con cámara 2.7K, ideal para topografía y tomas aéreas de proyectos. Incluye 2 baterías, control y estuche.'}},
 {l:'Cámara',ph:'cam2',a:{t:'Cámara mirrorless 24 MP',cat:'Cámaras',cond:'Usado',mode:'ambos',price:1400,rent:50,dep:180,tags:['Mirrorless','24 MP','Lente kit'],desc:'Cámara mirrorless con lente kit para audiovisuales y fotografía. Incluye batería y cargador.'}},
 {l:'Monitor',ph:'monitor',a:{t:'Monitor 24" Full HD',cat:'Laptops',cond:'Usado',mode:'venta',price:320,tags:['Monitor','1080p','HDMI'],desc:'Monitor Full HD en buen estado, sin píxeles muertos. Ideal para segunda pantalla.'}},
 {l:'Libros',ph:'pack',a:{t:'Pack de libros de Estática',cat:'Libros',cond:'Usado',mode:'ambos',price:60,rent:12,dep:30,tags:['Libros','Ingeniería'],desc:'Pack de libros de estática y resistencia de materiales, con pocas marcas.'}},
 {l:'Casco',ph:'casco',a:{t:'Casco de seguridad con barbiquejo',cat:'Herramientas',cond:'Nuevo',mode:'venta',price:30,tags:['Casco','EPP'],desc:'Casco certificado, requisito para visitas a obra y laboratorio.'}}];
 function imgErr(el,e){el.outerHTML=`<div class="w-full h-full grid place-items-center text-5xl bg-blue-50">${e}</div>`}
-function startPub(){PUB={ph:[],t:'',cat:'Cámaras',cond:'Usado',desc:'',mode:'venta',price:'',rent:'',dep:'',cp:SEL[ME].cp,ai:null};STEP=1;nav('publish')}
+function startPub(){PUB={ph:[],t:'',cat:'Cámaras',cond:'Usado',desc:'',mode:'venta',price:'',rent:'',dep:'',cp:SEL[ME].cp,ai:null,car:[]};STEP=1;nav('publish')}
 function pickS(i){const x=SAMPLES[i];if(PUB.ph.includes(x.ph)){PUB.ph=PUB.ph.filter(f=>f!=x.ph);return R(1)}PUB.ph.push(x.ph);aiScan(x.ph,x.a)}
 function upF(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas'),k=Math.min(1,600/i.width);c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);const d=c.toDataURL('image/jpeg',.8);PUB.ph.push(d);aiScan(d,SAMPLES[Math.floor(Math.random()*SAMPLES.length)].a)};i.src=e.target.result};r.readAsDataURL(f)}
 function aiScan(img,a){const st=['Detectando objeto…','Evaluando estado visual…','Comparando con publicaciones similares…','Calculando precio sugerido…','Redactando descripción…'];
@@ -264,7 +265,7 @@ function aiScan(img,a){const st=['Detectando objeto…','Evaluando estado visual
  setTimeout(()=>{Object.assign(PUB,{t:a.t,cat:a.cat,cond:a.cond,mode:a.mode,price:a.price||'',rent:a.rent||'',dep:a.dep||'',desc:a.desc,ai:a});X();R(1);toast('✨ Vision AI completó tu publicación')},st.length*650+300)}
 function pubGo(){const D=PUB;if(!D.ph.length)return toast('Elige al menos una foto');if(D.t.trim().length<3)return toast('Escribe un título');
  if((D.mode!='alquiler'&&!(+D.price>0))||(D.mode!='venta'&&!(+D.rent>0)))return toast('Ingresa los precios requeridos');
- PR.unshift({id:Date.now(),t:D.t.trim(),ph:D.ph,cat:D.cat,mode:D.mode,price:+D.price,rent:+D.rent,dep:+D.dep||0,cond:D.cond,d:0.3,s:ME,x:50,y:44,ts:99,desc:D.desc||'Sin descripción',e:'📦',own:LV.me&&LV.me.uid});SEL[ME].cp=+D.cp;save();shareProduct(PR[0]);PT='pub';root('profile');toast(sock&&sock.connected?'✅ Publicado en vivo para todos los conectados':'✅ Publicado · U2U AI lo sugerirá a 18 estudiantes')}
+ PR.unshift({id:Date.now(),t:D.t.trim(),ph:D.ph,cat:D.cat,mode:D.mode,price:+D.price,rent:+D.rent,dep:+D.dep||0,cond:D.cond,d:0.3,s:ME,x:50,y:44,ts:99,desc:D.desc||'Sin descripción',e:'📦',car:[...(D.car||[])],own:LV.me&&LV.me.uid});SEL[ME].cp=+D.cp;save();shareProduct(PR[0]);PT='pub';root('profile');toast(sock&&sock.connected?'✅ Publicado en vivo para todos los conectados':'✅ Publicado · U2U AI lo sugerirá a 18 estudiantes')}
 /* ===== U2U AI (simulada, funciona sin conexión) ===== */
 const mkt=p=>(((p.id*37)%31)-8);
 const fairPct=p=>p.price?Math.round(mkt(p)/(100+mkt(p))*100):0;
@@ -309,29 +310,29 @@ new MutationObserver(()=>{if(S.s=='chat')chatR(S.a)}).observe($('#v'),{childList
 /* ===== V6: enfoque UPC ===== */
 const SD=[{d:'Surco · Sede principal',i:'🏛️',pt:'Biblioteca y patio central'},{d:'Av. Salaverry',i:'🏢',pt:'Lobby y cafetería'},{d:'Chorrillos',i:'🌿',pt:'Rotonda y biblioteca'},{d:'Av. La Marina',i:'🌊',pt:'Cafetería y hall principal'}];
 const CIC=['7mo','8vo','9no','6to','8vo','9no','6to','7mo','8vo','5to'];SEL.forEach((s,i)=>s.ci=CIC[i%10]);
-const CARR=['Todas','Ing. Civil','Arquitectura','Comunicaciones','Software','Diseño de Moda','Salud'];
-const C1='Ing. Civil',AR='Arquitectura',CM='Comunicaciones',SW='Software',MO='Diseño de Moda',SA='Salud';
-const PCAR={1:[CM],2:[SW,AR,CM],3:[CM],4:[C1,SW],5:[MO],6:[AR,C1],7:[AR],8:[CM],9:[C1],10:[C1,AR,CM],11:[C1],12:[C1],13:[AR,MO,SW],14:[SA],15:[C1],16:[SW],17:[SW,C1],18:[C1],19:[C1,SW],20:[SA],21:[SW],22:[MO,CM,AR],23:[AR,C1],24:[C1]};
+const CARR=['Todas','Ing. Civil','Arquitectura','Sistemas','Negocios','Comunicaciones','Diseño de Moda','Salud'];
+const C1='Ing. Civil',AR='Arquitectura',CM='Comunicaciones',SW='Sistemas',NG='Negocios',MO='Diseño de Moda',SA='Salud';
+const PCAR={1:[CM],2:[SW,AR,CM,NG],3:[CM],4:[C1,SW,NG],5:[MO],6:[AR,C1],7:[AR],8:[CM],9:[C1],10:[C1,AR,CM],11:[C1],12:[C1],13:[AR,MO,SW],14:[SA],15:[C1],16:[SW],17:[SW,C1,NG],18:[C1,NG],19:[C1,SW,NG],20:[SA],21:[SW,NG],22:[MO,CM,AR],23:[AR,C1],24:[C1]};
 function sedeM(){M(`<div class="bg-white w-full rounded-t-3xl p-5 pop"><p class="font-bold text-lg mb-3">¿En qué sede estás?</p>${[-1,0,1,2,3].map(i=>`<div onclick="F.cp=${i};X();R(1)" class="flex items-center gap-3 border-2 rounded-2xl p-3 mb-2 cursor-pointer ${F.cp==i?'border-brand bg-blue-50':'border-slate-100'}"><span class="text-2xl">${i<0?'🎓':SD[i].i}</span><div><b class="text-sm">${i<0?'Todas las sedes':CAMP[i]}</b><p class="text-xs text-slate-500">${i<0?'Ver artículos de los 4 campus':SD[i].d}</p></div></div>`).join('')}</div>`)}
 V.sedes=()=>hd('Sedes UPC')+`<div class="p-5 pb-10"><p class="text-sm text-slate-500 mb-4">Compra y vende dentro de tu campus: sin envíos y con entrega en puntos seguros.</p>${SD.map((s,i)=>{const n=PR.filter(p=>SEL[p.s].cp==i).length;return `<div class="border rounded-2xl p-4 mb-3"><div class="flex items-center gap-3"><span class="text-3xl">${s.i}</span><div class="flex-1"><b>${CAMP[i]}</b><p class="text-xs text-slate-500">${s.d}</p></div><span class="text-xs font-bold px-3 py-1 rounded-full bg-blue-100 text-blue-800">${n} artículos</span></div><p class="text-xs mt-3 bg-emerald-50 text-emerald-800 rounded-xl p-2">🛡️ Punto seguro: ${s.pt}</p><div class="grid grid-cols-2 gap-2 mt-3"><button class="btn !py-2 !text-sm" onclick="F.cp=${i};root('home')">Ver artículos</button><button class="btn !py-2 !text-sm !bg-white !text-brand border border-brand" onclick="F.cp=${i};root('map')">Ver en mapa</button></div></div>`}).join('')}</div>`;
 let AH=65;function ahR(){const v=+$('#ahc').value||0;$('#aho').textContent=sol(Math.round(v*AH/100));$('#ahp').textContent=AH+'%'}
 function ahorroM(){M(`<div class="bg-white w-full rounded-t-3xl p-6 pop"><p class="font-bold text-lg">Calculadora de ahorro</p><p class="text-xs text-slate-500 mb-3">¿Cuánto gastarías en tienda para este ciclo?</p><input id="ahc" type="number" class="inp" value="700" oninput="ahR()"><label class="text-xs font-semibold">Ahorro estimado vs. tienda: <b id="ahp"></b> (supuesto editable)</label><input type="range" min="30" max="80" value="${AH}" class="w-full my-2" oninput="AH=this.value;ahR()"><div class="bg-emerald-50 rounded-2xl p-4 text-center"><p class="text-xs text-emerald-800 font-semibold">Tu ahorro estimado con U2U</p><p id="aho" class="text-3xl font-black text-emerald-600"></p></div><button class="btn mt-4" onclick="X()">Listo</button></div>`);ahR()}
 function manifM(){M(`<div class="bg-white w-full rounded-t-3xl p-6 pop max-h-[85%] overflow-y-auto no-sb"><p class="font-bold text-lg">💡 Manifiesto U2U · UPC</p><div class="text-sm text-slate-700 leading-relaxed space-y-2 mt-3"><p>U2U es una plataforma digital peruana pensada para reducir el costo de los materiales universitarios, enfocada en la <b>Universidad Peruana de Ciencias Aplicadas</b> y sus <b>4 sedes</b>: Monterrico, San Isidro, Villa y San Miguel.</p><p><b>Ciclos avanzados:</b> rentabilizan libros, calculadoras, cámaras y herramientas que ya no usan.</p><p><b>Ciclos iniciales:</b> compran o alquilan equipos a precios justos sin salir del campus.</p><p>Así fomentamos el ahorro estudiantil y una comunidad basada en el consumo responsable y la reutilización.</p></div><button class="btn mt-4" onclick="X()">Cerrar</button></div>`)}
-/* ===================== V7: TIEMPO REAL (Socket.io) ===================== */
+/* ===================== V8: TIEMPO REAL (Socket.io) ===================== */
 /* Si /socket.io/socket.io.js no carga (archivo abierto sin servidor), la app sigue en modo local simulado. */
-const LV={me:null,role:'buyer',pref:null,uid:null,convs:{},pres:{sellers:0,total:0},chips:[]};
-let sock=null;
-try{LV.pref=JSON.parse(localStorage.getItem('u2u7')||'null');if(LV.pref&&LV.pref.role)LV.role=LV.pref.role}catch(e){}
+const LV={me:null,pref:null,idc:null,convs:{},orders:{},pres:{total:0,uids:[]},chips:[]};
+let sock=null,MT='chats';
+try{LV.pref=JSON.parse(localStorage.getItem('u2u7')||'null')}catch(e){}
+PR.forEach(p=>{if(p.cond=='Como nuevo')p.cond='Semi nuevo'});
 const uname=()=>LV.me?LV.me.name:'Jared',tm=ts=>new Date(ts).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
 /* identidad por dispositivo: uid público + secreto privado. El servidor solo deja entrar con ambos,
-   así nadie puede suplantarte para leer tus chats. (Dos personas = dos dispositivos o navegadores distintos.) */
+   así nadie puede suplantarte para leer tus chats ni tus pedidos. (Dos personas = dos dispositivos o navegadores.) */
 const rnd=n=>{const a=new Uint8Array(n);try{crypto.getRandomValues(a)}catch(e){for(let i=0;i<n;i++)a[i]=Math.random()*256}return[...a].map(b=>b.toString(16).padStart(2,'0')).join('')};
 function myId(fresh){if(fresh)LV.idc=null;if(LV.idc)return LV.idc;try{if(!fresh)LV.idc=JSON.parse(localStorage.getItem('u2uid')||'null')}catch(e){}
  if(!LV.idc||!LV.idc.uid||!LV.idc.secret){LV.idc={uid:'u_'+rnd(5),secret:rnd(16)};try{localStorage.setItem('u2uid',JSON.stringify(LV.idc))}catch(e){}}return LV.idc}
-const myUid=()=>myId().uid,joinData=()=>({uid:LV.me.uid,secret:myId().secret,name:LV.me.name,role:LV.me.role});
-function setRole(r){LV.role=r;document.querySelectorAll('.rl').forEach(b=>{const on=b.dataset.role==r;b.classList.toggle('border-brand',on);b.classList.toggle('bg-blue-50',on);b.classList.toggle('border-slate-200',!on)})}
-function liveJoin(name,role){SEL[ME].n=name;LV.me={uid:myUid(),name,role};LV.pref={name,role};try{localStorage.setItem('u2u7',JSON.stringify(LV.pref))}catch(e){}if(sock&&sock.connected)sock.emit('join',joinData())}
-function logout(){if(sock&&sock.connected)sock.emit('leave');LV.me=null;LV.convs={};root('login')}
+const myUid=()=>myId().uid,joinData=()=>({uid:LV.me.uid,secret:myId().secret,name:LV.me.name});
+function liveJoin(name){SEL[ME].n=name;LV.me={uid:myUid(),name};LV.pref={name};try{localStorage.setItem('u2u7',JSON.stringify(LV.pref))}catch(e){}if(sock&&sock.connected)sock.emit('join',joinData())}
+function logout(){if(sock&&sock.connected)sock.emit('leave');LV.me=null;LV.convs={};LV.orders={};root('login')}
 
 function liveStart(){if(!window.io)return;
  sock=io();
@@ -340,7 +341,14 @@ function liveStart(){if(!window.io)return;
  sock.on('disconnect',presUI);
  sock.on('presence',p=>{LV.pres=p;presUI()});
  sock.on('history',l=>{const old=LV.convs;LV.convs={};l.forEach(c=>{c.un=(old[c.key]&&old[c.key].un)||0;LV.convs[c.key]=c});if(S.s=='msgs')R(1);if(S.s=='lchat')lchatR(S.a);navDot()});
- sock.on('msg',onMsg);sock.on('products',onProducts);sock.on('new-product',onNewProduct)}
+ sock.on('orders',l=>{LV.orders={};l.forEach(o=>LV.orders[o.id]=o);if(S.s=='msgs'||S.s=='profile')R(1);navDot()});
+ sock.on('order',onOrder);
+ sock.on('msg',onMsg);
+ sock.on('products',onProducts);
+ sock.on('new-product',onNewProduct);
+ sock.on('product-status',d=>{const p=P(d.id);if(!p)return;p.status=d.status;refreshCatalog();if(S.s=='detail'&&S.a==d.id)R(1)})}
+
+/* ---------- Chat privado por producto ---------- */
 function onMsg(d){if(!LV.me)return;const k=d.conv.key;
  const c=LV.convs[k]||(LV.convs[k]={key:k,pid:d.conv.pid,buyerId:d.conv.buyerId,buyerName:d.conv.buyerName,msgs:[],un:0});
  if(c.msgs.some(m=>m.id==d.msg.id))return;c.msgs.push(d.msg);c.buyerName=d.conv.buyerName;
@@ -348,18 +356,6 @@ function onMsg(d){if(!LV.me)return;const k=d.conv.key;
  if(S.s=='lchat'&&S.a==k)lchatR(k);
  else{if(!mine){c.un=(c.un||0)+1;toast('💬 '+d.msg.name+': '+d.msg.text.slice(0,40));try{navigator.vibrate&&navigator.vibrate(80)}catch(e){}}if(S.s=='msgs')R(1)}
  navDot()}
-
-/* Indicadores */
-function presUI(){const p=LV.pres||{sellers:0,total:0},ok=sock&&sock.connected;
- const a=$('#pres');if(a)a.textContent=ok?`🟢 ${p.total} conectado${p.total==1?'':'s'} ahora · ${p.sellers} vendedor${p.sellers==1?'':'es'} en línea`:(sock?'🔴 Conectando con el servidor…':'⚪ Modo local (sin servidor)');
- const b=$('#lst');if(b){let on=false;if(ok&&LV.me&&S.s=='lchat'){const[pid,bid]=String(S.a).split('|'),o=bid==LV.me.uid?(P(pid)||{}).own:bid;on=(p.uids||[]).includes(o)}
-  b.innerHTML=!ok?'<span class="text-red-500">● reconectando…</span>':on?'<span class="text-mint">● en línea</span>':'<span class="text-slate-400">○ desconectado</span>'}}
-function navDot(){const b=document.querySelector('#nav [aria-label="Mensajes"]');if(!b)return;b.classList.add('relative');
- const n=Object.values(LV.convs).reduce((a,c)=>a+(c.un||0),0);let d=b.querySelector('.ud');
- if(n&&!d){b.insertAdjacentHTML('beforeend','<span class="ud absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center"></span>');d=b.querySelector('.ud')}
- if(d){if(n)d.textContent=n;else d.remove()}}
-
-/* Abrir chat / ofertas */
 function openChat(pid){
  if(!window.io||!LV.me)return nav('chat',pid);
  const pp=P(pid);if(pp&&(pp.own==LV.me.uid||pp.s==ME))return toast('Esta es tu publicación: las consultas llegan a Mensajes');
@@ -375,49 +371,125 @@ function lsend(k,t){const i=$('#ci');t=(t||(i&&i.value)||'').trim();if(!t)return
  const[pid,bid]=k.split('|');
  sock.emit('send',{pid:+pid,buyerId:bid,text:t},r=>{if(r&&r.error)toast(r.error)});
  if(i){i.value='';i.focus()}}
-
-/* Pantallas */
-V.lchat=key=>{const[pid,bid]=key.split('|'),p=P(pid)||{id:0,t:'Producto no disponible en este dispositivo',ph:[],e:'📦',mode:'venta',price:0,s:0},c=LV.convs[key],sl=bid!=LV.me.uid,
- title=sl?esc(c?c.buyerName:'Comprador'):esc(SEL[p.s].n);
- LV.chips=sl?['¡Hola! Sí, sigue disponible 😊','Nos vemos en el punto seguro del campus','¿Cuánto ofreces?','¡Trato hecho! 🎉']:(p.id?aiChips(p):['¿Sigue disponible?']);
+V.lchat=key=>{const[pid,bid]=key.split('|'),p=P(pid)||{id:0,t:'Producto no disponible en este dispositivo',ph:[],e:'📦',mode:'venta',price:0,s:0},c=LV.convs[key],own=bid!=LV.me.uid,
+ title=own?esc(c?c.buyerName:'Interesado'):esc(SEL[p.s].n);
+ LV.chips=own?['¡Hola! Sí, sigue disponible 😊','Nos vemos en el punto seguro del campus','¿Cuánto ofreces?','¡Trato hecho! 🎉']:(p.id?aiChips(p):['¿Sigue disponible?']);
  return `<div class="h-full flex flex-col">${hd(title,'<span id="lst" class="text-xs font-semibold"></span>')}
  <div ${p.id?`onclick="openP(${p.id})"`:''} class="flex gap-3 items-center p-3 bg-slate-50 border-b cursor-pointer"><div class="w-12 h-12 rounded-lg overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="text-sm font-bold truncate">${esc(p.t)}</p>${p.id?`<p class="text-xs text-brand font-bold">${price(p)}</p>`:''}</div></div>
  <div id="ml" class="flex-1 overflow-y-auto no-sb p-4 space-y-2 bg-slate-50"></div>
- <div class="flex gap-2 overflow-x-auto no-sb px-3 pt-2 items-center"><span class="text-[10px] font-bold text-purple-600 shrink-0">${sl?'⚡ Respuestas rápidas':'✨ IA sugiere'}</span>${LV.chips.map((q,i)=>`<button class="chip" onclick="lsend('${key}',LV.chips[${i}])">${esc(q)}</button>`).join('')}</div>
+ <div class="flex gap-2 overflow-x-auto no-sb px-3 pt-2 items-center"><span class="text-[10px] font-bold text-purple-600 shrink-0">${own?'⚡ Respuestas rápidas':'✨ IA sugiere'}</span>${LV.chips.map((q,i)=>`<button class="chip" onclick="lsend('${key}',LV.chips[${i}])">${esc(q)}</button>`).join('')}</div>
  <div class="flex gap-2 p-3"><input id="ci" onkeydown="event.key=='Enter'&&lsend('${key}')" autocomplete="off" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-100 rounded-full px-4 py-3 text-sm outline-none"><button onclick="lsend('${key}')" aria-label="Enviar" class="bg-brand text-white rounded-full p-3"><i data-lucide="send" class="w-5"></i></button></div></div>`};
 function lchatR(k){const m=$('#ml');if(!m)return;const c=LV.convs[k];if(c)c.un=0;
- m.innerHTML=c&&c.msgs.length?c.msgs.map(x=>{const me=x.uid==LV.me.uid;return `<div class="flex ${me?'justify-end':''}"><div class="max-w-[78%]">${me?'':`<p class="text-[10px] text-slate-400 ml-1">${esc(x.name)} · ${x.from=='seller'?'Vendedor':'Comprador'}</p>`}<div class="px-3 py-2 rounded-2xl text-sm break-words ${me?'bg-brand text-white rounded-br-sm':'bg-white border rounded-bl-sm'}">${esc(x.text)}<p class="text-[9px] opacity-60 text-right">${tm(x.ts)}</p></div></div></div>`}).join(''):'<p class="text-center text-xs text-slate-400 mt-10">Escribe o usa una respuesta rápida para empezar.</p>';
+ m.innerHTML=c&&c.msgs.length?c.msgs.map(x=>{const me=x.uid==LV.me.uid;return `<div class="flex ${me?'justify-end':''}"><div class="max-w-[78%]">${me?'':`<p class="text-[10px] text-slate-400 ml-1">${esc(x.name)}</p>`}<div class="px-3 py-2 rounded-2xl text-sm break-words ${me?'bg-brand text-white rounded-br-sm':'bg-white border rounded-bl-sm'}">${esc(x.text)}<p class="text-[9px] opacity-60 text-right">${tm(x.ts)}</p></div></div></div>`}).join(''):'<p class="text-center text-xs text-slate-400 mt-10">Escribe o usa una respuesta rápida para empezar.</p>';
  m.scrollTop=m.scrollHeight;navDot()}
-function liveMsgs(){const sl=LV.me.role=='seller',l=Object.values(LV.convs).filter(c=>c.msgs.length).sort((a,b)=>b.msgs[b.msgs.length-1].ts-a.msgs[a.msgs.length-1].ts);
- return `<div class="p-5 pb-28"><div class="flex items-center justify-between mb-4"><h1 class="text-2xl font-bold">Mensajes</h1><span class="text-[11px] font-bold px-3 py-1 rounded-full ${sl?'bg-emerald-100 text-emerald-700':'bg-blue-100 text-blue-700'}">${sl?'🏷️ Vendedor':'🛒 Comprador'}</span></div>
- ${l.map(c=>{const p=P(c.pid),m=c.msgs[c.msgs.length-1],mine=m.uid==LV.me.uid;if(!p)return '';
+
+/* ---------- Pedidos con código de entrega ---------- */
+const fpin=p=>p.slice(0,3)+' '+p.slice(3);
+const STB={pending:['Pendiente de entrega','bg-amber-100 text-amber-700'],completed:['Entrega confirmada','bg-emerald-100 text-emerald-700'],cancelled:['Cancelado','bg-slate-100 text-slate-500']};
+function coOk(id,mode){if(!window.io||!LV.me)return true;const p=P(id);
+ if(p.own==LV.me.uid||p.s==ME)return toast('Esta es tu publicación'),false;
+ if(!p.own)return toast('Producto de ejemplo: la compra con código funciona con publicaciones de otros estudiantes (botón +)'),false;
+ if(p.status=='sold')return toast('Este producto ya fue vendido'),false;
+ if(mode=='venta'&&p.status=='reserved')return toast('Otro estudiante ya inició la compra de este producto'),false;
+ const m=mode=='alquiler'?'alquiler':'compra';
+ if(Object.values(LV.orders).some(o=>o.pid==id&&o.buyerId==LV.me.uid&&o.mode==m&&o.status=='pending')){toast('Ya tienes un pedido pendiente por este producto');MT='orders';root('msgs');return false}
+ return true}
+function payLive(){if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
+ M('<div class="bg-white w-full rounded-t-3xl p-8 text-center"><div class="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto"></div><p class="font-bold mt-4">Creando tu pedido...</p></div>');
+ sock.emit('order:create',{pid:CO.id,mode:CO.mode=='alquiler'?'alquiler':'compra',del:CO.del,cp:CO.cp,from:CO.from,to:CO.to},r=>{
+  if(!r||r.error){X();return toast((r&&r.error)||'No se pudo crear el pedido')}
+  LV.orders[r.order.id]=r.order;pinModal(r.order);navDot()})}
+function pinModal(o){M(`<div class="bg-white w-full rounded-t-3xl p-7 text-center pop"><div class="w-16 h-16 bg-emerald-100 text-mint rounded-full grid place-items-center mx-auto"><i data-lucide="check" class="w-9 h-9"></i></div>
+ <p class="font-extrabold text-xl mt-3">${o.mode=='compra'?'¡Compra reservada!':'¡Alquiler reservado!'}</p><p class="text-xs text-slate-500">Pedido ${o.id} · ${sol(o.total)}</p>
+ <div class="mt-4 rounded-2xl p-4" style="background:linear-gradient(135deg,#eef2ff,#e0f2fe)"><p class="text-[11px] font-semibold text-slate-600">🔐 Tu código de entrega</p><p class="text-4xl font-black tracking-[.25em] text-navy my-1 select-all">${fpin(o.pin)}</p></div>
+ <p class="text-xs text-slate-600 mt-3 leading-snug">Quedan en verse en <b>${CAMP[o.cp]}</b>. Cuando <b>${esc(o.ownerName)}</b> te entregue el producto, <b>muéstrale o dícta este código</b>. Al ingresarlo en U2U se completa la transacción. No lo compartas antes.</p>
+ <button class="btn mt-5" onclick="X();MT='orders';root('msgs')">Ver mi pedido</button><button class="w-full py-3 text-slate-500" onclick="X();root('home')">Seguir explorando</button></div>`)}
+function onOrder(o){if(!LV.me)return;const old=LV.orders[o.id];LV.orders[o.id]=o;const me=LV.me.uid;
+ if(!old&&o.ownerId==me)toast('🛒 '+o.buyerName+' quiere '+(o.mode=='compra'?'comprar':'alquilar')+': '+String(o.t).slice(0,26));
+ else if(old&&old.status=='pending'&&o.status=='completed')showDone(o);
+ else if(old&&old.status=='pending'&&o.status=='cancelled')toast('Pedido cancelado: '+String(o.t).slice(0,30));
+ else if(old&&!old.locked&&o.locked&&o.ownerId==me)toast('Pedido bloqueado 5 min por intentos fallidos');
+ if(['msgs','profile','detail'].includes(S.s))R(1);navDot()}
+function showDone(o){const buyer=o.buyerId==LV.me.uid,k=o.mode=='compra'?'compra':'alquiler';
+ M(`<div class="bg-white w-full rounded-t-3xl p-7 text-center pop"><div class="w-16 h-16 bg-emerald-100 text-mint rounded-full grid place-items-center mx-auto"><i data-lucide="check" class="w-9 h-9"></i></div><p class="font-extrabold text-xl mt-3">¡Entrega confirmada! 🎉</p>
+ <p class="text-sm text-slate-500 mt-1">${buyer?`Recibiste <b>${esc(o.t)}</b> de ${esc(o.ownerName)}. Tu ${k} quedó completada.`:`Entregaste <b>${esc(o.t)}</b> a ${esc(o.buyerName)}. Tu ${k=='compra'?'venta':'alquiler'} quedó completada.`}</p>
+ ${buyer?'<button class="btn mt-5" onclick="rate()">⭐ Calificar</button>':''}<button class="w-full py-3 text-slate-500" onclick="X()">Listo</button></div>`)}
+function confirmOrder(id){const i=document.querySelector(`.pin-in[data-o="${id}"]`),pin=((i&&i.value)||'').replace(/[^0-9]/g,'');
+ if(pin.length!=6)return toast('Ingresa los 6 dígitos del código');
+ if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
+ sock.emit('order:confirm',{id,pin},r=>{if(r&&r.error){toast(r.error);if(i)i.value=''}})}
+function cancelOrder(id){if(!confirm('¿Cancelar este pedido? Se liberará el producto.'))return;
+ sock.emit('order:cancel',{id},r=>{if(r&&r.error)toast(r.error)})}
+function orderChat(id){const o=LV.orders[id];if(!o)return;const k=o.pid+'|'+o.buyerId;
+ if(o.buyerId!=LV.me.uid&&!LV.convs[k])return toast('El comprador aún no te escribió por chat');nav('lchat',k)}
+function ordCard(o){const me=LV.me.uid,buyer=o.buyerId==me,sb=STB[o.status],pend=o.status=='pending',p=P(o.pid),
+ kind=o.mode=='compra'?'Compra':'Alquiler · '+o.days+' día'+(o.days>1?'s':'');
+ return `<div class="border rounded-2xl p-3 mb-3"><div class="flex gap-3"><div class="w-14 h-14 rounded-xl overflow-hidden shrink-0">${p?pic(p):'<div class="w-full h-full grid place-items-center text-3xl bg-blue-50">📦</div>'}</div>
+ <div class="flex-1 min-w-0"><p class="font-bold text-sm truncate">${esc(o.t)}</p><p class="text-[11px] text-slate-500">${o.id} · ${kind}</p><p class="text-xs text-slate-500">Con ${esc(buyer?o.ownerName:o.buyerName)}</p><b class="text-brand text-sm">${sol(o.total)}</b></div>
+ <span class="self-start text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${sb[1]}">${sb[0]}</span></div>
+ ${pend&&buyer&&o.pin?`<div class="mt-3 rounded-2xl p-4 text-center" style="background:linear-gradient(135deg,#eef2ff,#e0f2fe)"><p class="text-[11px] font-semibold text-slate-600">🔐 Tu código de entrega</p><p class="text-4xl font-black tracking-[.25em] text-navy my-1 select-all">${fpin(o.pin)}</p><p class="text-[11px] text-slate-500 leading-snug">Muéstraselo o díctaselo a <b>${esc(o.ownerName)}</b> <u>solo cuando recibas el producto</u> en ${CAMP[o.cp]}. Al ingresarlo en U2U se completa la transacción.</p></div>`:''}
+ ${pend&&!buyer?`<div class="mt-3 rounded-2xl p-3 bg-blue-50"><p class="text-xs font-semibold text-navy">Al entregar el producto, pídele a ${esc(o.buyerName)} su código de 6 dígitos:</p><div class="flex gap-2 mt-2 items-center"><input data-o="${o.id}" class="pin-in flex-1 min-w-0 text-center text-xl font-bold tracking-[.3em] border rounded-xl py-2 outline-none" inputmode="numeric" maxlength="6" placeholder="••••••" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)" ${o.locked?'disabled':''}><button class="bg-brand text-white font-bold rounded-xl px-4 py-3 text-sm" onclick="confirmOrder('${o.id}')">Confirmar entrega</button></div>${o.locked?'<p class="text-[11px] text-red-500 mt-1">Bloqueado por intentos fallidos. Inténtalo en unos minutos.</p>':''}</div>`:''}
+ ${o.status=='completed'?`<p class="mt-2 text-xs text-emerald-700 bg-emerald-50 rounded-xl p-2">✅ ${buyer?'Recibiste el producto':'Entregaste el producto'} · ${new Date(o.doneAt).toLocaleString('es-PE',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>`:''}
+ <div class="flex gap-2 mt-3 flex-wrap"><button class="chip" onclick="orderChat('${o.id}')">💬 Chat</button>${pend?`<button class="chip" onclick="cancelOrder('${o.id}')">Cancelar pedido</button>`:''}${o.status=='completed'&&buyer?'<button class="chip" onclick="rate()">⭐ Calificar</button>':''}</div></div>`}
+function liveOrdersH(){const l=Object.values(LV.orders).sort((a,b)=>b.ts-a.ts);
+ return l.map(ordCard).join('')||'<p class="text-center text-slate-400 py-10 text-sm">Aún no tienes pedidos.<br>Cuando compres, alquiles o te compren algo, aparecerá aquí con su código de entrega.</p>'}
+const ordersTab=()=>(window.io&&LV.me)?liveOrdersH():(ST.orders.map((o,i)=>orderC(o,i)).join('')||'<p class="text-center text-slate-400 py-8 text-sm">Aún no tienes pedidos.</p>');
+
+/* ---------- Bandeja: chats + pedidos ---------- */
+function liveMsgs(){const l=Object.values(LV.convs).filter(c=>c.msgs.length).sort((a,b)=>b.msgs[b.msgs.length-1].ts-a.msgs[a.msgs.length-1].ts),
+ nc=l.reduce((a,c)=>a+(c.un||0),0),np=Object.values(LV.orders).filter(o=>o.status=='pending').length,
+ bd=n=>n?`<span class="ml-1 min-w-[18px] h-[18px] px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold inline-grid place-items-center">${n}</span>`:'',
+ tab=(k,t,n)=>`<button onclick="MT='${k}';R(1)" class="py-2 rounded-lg ${MT==k?'bg-white shadow text-brand':'text-slate-500'}">${t}${bd(n)}</button>`;
+ const chats=l.map(c=>{const p=P(c.pid),m=c.msgs[c.msgs.length-1],mine=m.uid==LV.me.uid;if(!p)return '';
   return `<div onclick="nav('lchat','${c.key}')" class="flex gap-3 items-center py-3 border-b cursor-pointer"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm">${c.buyerId!=LV.me.uid?esc(c.buyerName):esc(SEL[p.s].n)}</p><p class="text-xs text-slate-500 truncate">${esc(p.t)}</p><p class="text-xs truncate ${mine?'text-slate-400':'text-slate-700 font-semibold'}">${mine?'Tú: ':''}${esc(m.text)}</p></div><div class="flex flex-col items-end gap-1"><span class="text-[10px] text-slate-400">${tm(m.ts)}</span>${c.un?`<span class="min-w-[18px] h-[18px] px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center">${c.un}</span>`:''}</div></div>`}).join('')
- ||`<p class="text-center text-slate-400 py-16 text-sm">${sl?'Aún no hay consultas.<br>Cuando alguien te escriba por una de tus publicaciones, aparecerá aquí en privado y en tiempo real.':'Aún no tienes conversaciones.<br>Abre una publicación de otro estudiante y toca el chat para escribirle en privado.'}</p>`}</div>`}
+  ||'<p class="text-center text-slate-400 py-16 text-sm">Aún no tienes conversaciones.<br>Abre una publicación de otro estudiante y toca el chat para escribirle en privado.</p>';
+ return `<div class="p-5 pb-28"><h1 class="text-2xl font-bold mb-3">Mensajes</h1><div class="grid grid-cols-2 bg-slate-100 rounded-xl p-1 text-sm font-semibold mb-4">${tab('chats','Chats',nc)}${tab('orders','Pedidos',np)}</div>${MT=='orders'?liveOrdersH():chats}</div>`}
 const _vMsgs=V.msgs;V.msgs=a=>(window.io&&LV.me)?liveMsgs():_vMsgs(a);
 
-/* Tras cada render: pintar mensajes, punto de no leídos y estado de conexión */
-const _R=R;R=function(keep){_R(keep);if(S.s=='lchat')lchatR(S.a);navDot();presUI()};
+/* ---------- Indicadores ---------- */
+function presUI(){const p=LV.pres||{total:0,uids:[]},ok=sock&&sock.connected;
+ const a=$('#pres');if(a)a.textContent=ok?`🟢 ${p.total} conectado${p.total==1?'':'s'} ahora`:(sock?'🔴 Conectando con el servidor…':'⚪ Modo local (sin servidor)');
+ const b=$('#lst');if(b){let on=false;if(ok&&LV.me&&S.s=='lchat'){const[pid,bid]=String(S.a).split('|'),o=bid==LV.me.uid?(P(pid)||{}).own:bid;on=(p.uids||[]).includes(o)}
+  b.innerHTML=!ok?'<span class="text-red-500">● reconectando…</span>':on?'<span class="text-mint">● en línea</span>':'<span class="text-slate-400">○ desconectado</span>'}}
+function navDot(){const b=document.querySelector('#nav [aria-label="Mensajes"]');if(!b)return;b.classList.add('relative');
+ const n=Object.values(LV.convs).reduce((a,c)=>a+(c.un||0),0)+(LV.me?Object.values(LV.orders).filter(o=>o.status=='pending'&&o.ownerId==LV.me.uid).length:0);let d=b.querySelector('.ud');
+ if(n&&!d){b.insertAdjacentHTML('beforeend','<span class="ud absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center"></span>');d=b.querySelector('.ud')}
+ if(d){if(n)d.textContent=n;else d.remove()}}
 
-/* ===== Publicaciones compartidas en vivo ===== */
+/* ---------- Filtros del catálogo ---------- */
+const carOk=p=>{const c=p.car||PCAR[p.id];return !c||!c.length||c.includes(F.car)};
+const filtN=()=>(F.car!='Todas')+(F.cond!='Todos')+(F.cp>=0)+(F.cat!='Todo')+(F.tab!='Todo');
+function clrF(){F.car='Todas';F.cond='Todos';F.cp=-1;F.cat='Todo';F.tab='Todo';R(1)}
+function togCar(c){const a=PUB.car=PUB.car||[],i=a.indexOf(c);i<0?a.push(c):a.splice(i,1);R(1)}
+const carH=p=>{const c=p.car||PCAR[p.id]||[];return c.length?`<div class="mt-3"><p class="text-[11px] text-slate-500 mb-1">🎒 Útil para</p><div class="flex flex-wrap gap-1.5">${c.map(x=>`<span class="text-[11px] font-semibold bg-blue-50 text-brand rounded-full px-2.5 py-1">${esc(x)}</span>`).join('')}</div></div>`:''};
+const stH=p=>p.status=='reserved'?'<div class="mt-3 bg-amber-50 text-amber-800 rounded-2xl p-3 text-xs flex gap-2"><i data-lucide="clock" class="w-5 shrink-0"></i><span><b>Reservado:</b> otro estudiante ya inició la compra. Si se cancela, vuelve a estar disponible.</span></div>':p.status=='sold'?'<div class="mt-3 bg-slate-100 text-slate-600 rounded-2xl p-3 text-xs">Este producto ya fue vendido.</div>':'';
+
+/* ---------- Publicaciones compartidas en vivo ---------- */
 const RS={};/* publicadores remotos: uid -> índice en SEL */
 function sellerIdx(uid,name,cp){if(LV.me&&uid==LV.me.uid)return ME;let i=RS[uid];
  if(i==null){SEL.push({n:name,r:5,c:0,car:'Estudiante UPC',cp,v:new Date().getFullYear(),ci:'—'});i=RS[uid]=SEL.length-1}
  else{SEL[i].n=name;SEL[i].cp=cp}return i}
-function addRemote(d){if(!d||!d.id||PR.some(p=>p.id==d.id))return false;
+function addRemote(d){if(!d||!d.id)return false;const ex=P(d.id);
+ if(ex){if(d.status&&ex.status!=d.status){ex.status=d.status;return true}return false}
  const s=sellerIdx(d.ownerUid,d.ownerName,d.cp),mine=s==ME;if(mine)SEL[ME].cp=d.cp;
- PR.unshift({id:d.id,t:d.t,ph:d.ph,cat:d.cat,mode:d.mode,price:d.price,rent:d.rent,dep:d.dep,cond:d.cond,d:mine?0.3:+(DK[d.cp]+((d.id*13)%9)/10).toFixed(1),s,x:50,y:44,ts:99,desc:d.desc,e:'📦',own:d.ownerUid,remote:!mine});
+ PR.unshift({id:d.id,t:d.t,ph:d.ph,cat:d.cat,mode:d.mode,price:d.price,rent:d.rent,dep:d.dep,cond:d.cond,car:d.car||[],status:d.status||'available',d:mine?0.3:+(DK[d.cp]+((d.id*13)%9)/10).toFixed(1),s,x:50,y:44,ts:99,desc:d.desc,e:'📦',own:d.ownerUid,remote:!mine});
  return true}
 function refreshCatalog(){if(S.s=='home')gridR();else if(S.s=='map'||S.s=='sedes')R(1)}
 function onNewProduct(d){if(!LV.me)return;if(addRemote(d)){refreshCatalog();toast('🆕 '+d.ownerName+' publicó: '+String(d.t).slice(0,30))}}
 function onProducts(list){if(!LV.me)return;list=list||[];let n=0;list.forEach(d=>{if(addRemote(d))n++});
  /* si el servidor se reinició, vuelvo a subir mis publicaciones */
- const have=new Set(list.map(d=>d.id));PR.filter(p=>p.id>100&&!p.remote&&p.s==ME&&!have.has(p.id)).forEach(p=>shareProduct(p,true));
+ const have=new Set(list.map(d=>d.id));PR.filter(p=>p.id>100&&!p.remote&&p.s==ME&&!have.has(p.id)&&p.status!='sold').forEach(p=>shareProduct(p,true));
  if(n)refreshCatalog()}
 function shareProduct(p,quiet){if(!sock||!sock.connected||!LV.me)return;
- sock.emit('new-product',{id:p.id,t:p.t,ph:p.ph,cat:p.cat,mode:p.mode,price:p.price,rent:p.rent,dep:p.dep,cond:p.cond,cp:SEL[ME].cp,desc:p.desc},r=>{
+ sock.emit('new-product',{id:p.id,t:p.t,ph:p.ph,cat:p.cat,mode:p.mode,price:p.price,rent:p.rent,dep:p.dep,cond:p.cond,car:p.car||[],cp:SEL[ME].cp,desc:p.desc},r=>{
   if(!r||(r.ok&&r.id==p.id))return;
   if(r.error){if(!quiet)toast('Se publicó solo en tu dispositivo: '+r.error);return}
   if(r.id&&r.id!=p.id){p.id=r.id;save()}})}
+
+/* Tras cada render: pintar mensajes, conservar el código que se está escribiendo y actualizar indicadores */
+const _R=R;R=function(keep){const pv={};document.querySelectorAll('.pin-in').forEach(i=>pv[i.dataset.o]=i.value);
+ _R(keep);document.querySelectorAll('.pin-in').forEach(i=>{if(pv[i.dataset.o])i.value=pv[i.dataset.o]});
+ if(S.s=='lchat')lchatR(S.a);navDot();presUI()};
 liveStart();
 
 R();
