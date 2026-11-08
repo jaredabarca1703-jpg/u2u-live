@@ -113,17 +113,17 @@ detail(id){const p=P(id),s=SEL[p.s],am=p.mode=='ambos',al=p.mode=='alquiler'||(a
   ${al?`<p class="text-xs text-slate-500">Depósito reembolsable: ${sol(p.dep||0)} (se preautoriza, no se cobra)</p>`:''}
   <div class="grid grid-cols-2 gap-2 mt-4 text-sm">${[['package','Condición',p.cond],['tag','Categoría',p.cat],['map-pin','Punto de encuentro',CAMP[s.cp]],['navigation','Distancia','a '+p.d+' km']].map(a=>`<div class="bg-slate-50 rounded-xl p-3"><i data-lucide="${a[0]}" class="w-4 text-brand"></i><p class="text-[11px] text-slate-500">${a[1]}</p><b class="text-[13px]">${a[2]}</b></div>`).join('')}</div>
   ${stH(p)}${carH(p)}${aiCard(p)}<h3 class="font-bold mt-4">Descripción</h3><p class="text-sm text-slate-600">${esc(p.desc)}</p>
-  <div onclick="nav('seller',${p.s})" class="mt-4 border rounded-2xl p-3 flex items-center gap-3 cursor-pointer"><div class="w-12 h-12 rounded-full bg-brand text-white grid place-items-center font-bold">${s.n[0]}</div><div class="flex-1"><p class="font-bold text-sm">${s.n} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${s.car} · ${s.ci} ciclo · ${CAMP[s.cp]}</p><p class="text-xs text-amber-500">${stars(s.r)} <span class="text-slate-500">${s.r} (${s.c})</span></p></div><i data-lucide="chevron-right" class="text-slate-400"></i></div>
+  <div onclick="nav('seller',${p.s})" class="mt-4 border rounded-2xl p-3 flex items-center gap-3 cursor-pointer"><div class="w-12 h-12 rounded-full bg-brand text-white grid place-items-center font-bold">${s.n[0]}</div><div class="flex-1"><p class="font-bold text-sm">${s.n} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${s.car} · ${s.ci} ciclo · ${CAMP[s.cp]}</p><p class="text-xs text-amber-500">${rtH(p.s)}</p></div><i data-lucide="chevron-right" class="text-slate-400"></i></div>
   <div class="mt-3 bg-emerald-50 text-emerald-800 rounded-2xl p-3 text-xs flex gap-2"><i data-lucide="shield-check" class="w-5 shrink-0"></i><span><b>Punto Seguro UPC:</b> entrega en ${SD[s.cp].pt} de ${CAMP[s.cp]}. Ambos presentan carné UPC y la entrega se confirma con un código de 6 dígitos. Paga solo dentro de U2U.</span></div>
-  <button onclick="toast('Reporte enviado. Gracias por cuidar la comunidad')" class="mt-3 text-xs text-slate-500 flex items-center gap-1"><i data-lucide="flag" class="w-3.5"></i>Reportar publicación</button>
+  ${reportBtn(p)}
   ${rel.length?`<h3 class="font-bold mt-5 mb-2">Similares</h3><div class="grid grid-cols-2 gap-3">${rel.map(card).join('')}</div>`:''}</div>
  <div class="absolute bottom-0 inset-x-0 bg-white border-t p-3 flex gap-2 z-20"><button onclick="openChat(${id})" class="p-3 border border-brand text-brand rounded-2xl"><i data-lucide="message-circle"></i></button>
   ${!al?`<button onclick="offerM(${id})" class="px-4 border border-brand text-brand rounded-2xl font-semibold text-sm">Hacer oferta</button>`:''}
   ${!al&&(p.status=='reserved'||p.status=='sold')?`<button class="btn flex-1 opacity-50" disabled>${p.status=='sold'?'Vendido':'Reservado por otro estudiante'}</button>`:`<button onclick="startCO(${id},'${al?'alquiler':'venta'}')" class="btn flex-1">${al?'Alquilar ahora':'Comprar'}</button>`}</div>`},
-seller(i){const s=SEL[i],l=PR.filter(p=>p.s==i);return hd('Perfil del vendedor')+`<div class="p-5 pb-24"><div class="flex items-center gap-4"><div class="w-16 h-16 rounded-full bg-brand text-white grid place-items-center text-2xl font-bold">${s.n[0]}</div><div><p class="font-bold">${s.n} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${s.car} · UPC</p><p class="text-xs text-amber-500">${stars(s.r)} ${s.r} (${s.c} reseñas)</p></div></div>
- <div class="grid grid-cols-3 text-center bg-blue-50 rounded-2xl py-3 mt-4 text-xs"><div><b class="block text-base">${l.length}</b>Publicaciones</div><div><b class="block text-base">${s.c}</b>Reseñas</div><div><b class="block text-base">${s.v}</b>Miembro desde</div></div>
+seller(i){const s=SEL[i],l=PR.filter(p=>p.s==i);return hd('Perfil del vendedor')+`<div class="p-5 pb-24"><div class="flex items-center gap-4"><div class="w-16 h-16 rounded-full bg-brand text-white grid place-items-center text-2xl font-bold">${s.n[0]}</div><div><p class="font-bold">${s.n} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${s.car} · UPC</p><p class="text-xs text-amber-500">${rtH(i)}</p></div></div>
+ <div class="grid grid-cols-3 text-center bg-blue-50 rounded-2xl py-3 mt-4 text-xs"><div><b class="block text-base">${l.length}</b>Publicaciones</div><div><b class="block text-base">${rtOf(i).count}</b>Reseñas</div><div><b class="block text-base">${s.v}</b>Miembro desde</div></div>
  <div class="bg-emerald-50 text-emerald-800 text-xs rounded-xl p-3 mt-3 flex gap-2"><i data-lucide="shield-check" class="w-5"></i>Estudiante verificado con correo universitario</div>
- <h3 class="font-bold mt-5 mb-2">Reseñas recientes</h3>${[['Lucía R.','Todo perfecto, muy amable y puntual.'],['Diego M.','Buen estado del equipo, 100% recomendado.']].map(r=>`<div class="border rounded-xl p-3 mb-2 text-sm"><b>${r[0]}</b> <span class="text-amber-500 text-xs">★★★★★</span><p class="text-slate-600 text-xs">${r[1]}</p></div>`).join('')}
+ <h3 class="font-bold mt-5 mb-2">Reseñas de estudiantes</h3>${revH(i)}
  <h3 class="font-bold mt-4 mb-2">Publicaciones</h3><div class="grid grid-cols-2 gap-3">${l.map(card).join('')}</div></div>`},
 chat(id){const p=P(id),s=SEL[p.s];return `<div class="h-full flex flex-col">${hd(s.n,`<span class="text-xs text-mint font-semibold">● en línea</span>`)}
  <div onclick="openP(${id})" class="flex gap-3 items-center p-3 bg-slate-50 border-b cursor-pointer"><div class="w-12 h-12 rounded-lg overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="text-sm font-bold truncate">${esc(p.t)}</p><p class="text-xs text-brand font-bold">${price(p)}</p></div></div>
@@ -138,8 +138,8 @@ map(){const l=mapL().sort((a,b)=>a.d-b.d);
  <p class="px-5 font-bold text-brand">${l.length} productos cerca de ti</p><div class="overflow-y-auto no-sb px-5 pb-28 divide-y">${l.map(p=>`<div onclick="openP(${p.id})" class="flex gap-3 py-3 cursor-pointer"><div class="w-20 h-20 rounded-xl overflow-hidden">${pic(p)}</div><div><p class="font-bold text-sm">${esc(p.t)}</p><span class="text-[10px] px-2 py-0.5 rounded-full ${tag(p.mode)[1]}">${tag(p.mode)[0]}</span><p class="font-extrabold text-brand">${price(p)}</p><p class="text-xs text-slate-500">📍 A ${p.d} km · ${CAMP[SEL[p.s].cp]}</p></div></div>`).join('')}</div></div></div>`},
 profile(){const me=PR.filter(p=>p.s==ME),n=me.length+ST.orders.length,fv=PR.filter(p=>ST.fav.includes(p.id)),tabs=[['pub','Publicaciones'],['fav','Favoritos'],['ord','Pedidos']];
  return `<div class="p-5 pb-28"><div class="flex justify-between"><h1 class="text-2xl font-bold">Mi cuenta</h1><button onclick="toast('Ajustes próximamente')"><i data-lucide="settings"></i></button></div>
- <div class="flex items-center gap-4 mt-4"><div class="w-16 h-16 rounded-full bg-brand text-white grid place-items-center text-2xl font-bold">${esc(uname())[0].toUpperCase()}</div><div><p class="font-bold">${esc(uname())} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${SEL[ME].car} · ${SEL[ME].ci} ciclo · ${CAMP[SEL[ME].cp]}</p><p class="text-xs text-amber-500">★ 4.8 (32)</p></div></div>
- <div class="mt-4 bg-emerald-50 text-emerald-800 text-xs rounded-xl p-3 flex gap-2"><i data-lucide="shield-check" class="w-5"></i>Alumno verificado: carné UPC, DNI y correo @upc.edu.pe</div>
+ <div class="flex items-center gap-4 mt-4"><div class="w-16 h-16 rounded-full bg-brand text-white grid place-items-center text-2xl font-bold">${esc(uname())[0].toUpperCase()}</div><div><p class="font-bold">${esc(uname())} <i data-lucide="badge-check" class="inline w-4 text-brand"></i></p><p class="text-xs text-slate-500">${SEL[ME].car} · ${SEL[ME].ci} ciclo · ${CAMP[SEL[ME].cp]}</p><p class="text-xs text-amber-500">${rtH(ME)}</p></div></div>
+ <div class="mt-4 bg-emerald-50 text-emerald-800 text-xs rounded-xl p-3 flex gap-2"><i data-lucide="shield-check" class="w-5"></i>Alumno verificado: carné UPC, DNI y correo @upc.edu.pe</div>${LV.adm?adminBtn():''}
  <div class="mt-3 rounded-2xl p-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white flex items-center gap-3"><i data-lucide="leaf" class="w-9 h-9"></i><div><p class="font-bold">${n} artículo${n==1?'':'s'} reutilizado${n==1?'':'s'}</p><p class="text-xs opacity-90">≈ ${n*9} kg de CO₂ evitados (estimado)</p></div></div>
  <div class="grid grid-cols-3 mt-4 bg-slate-100 rounded-xl p-1 text-xs font-semibold">${tabs.map(t=>`<button onclick="PT='${t[0]}';R(1)" class="py-2 rounded-lg ${PT==t[0]?'bg-white shadow text-brand':'text-slate-500'}">${t[1]}</button>`).join('')}</div>
  <div class="mt-4">${PT=='pub'?`<div class="grid grid-cols-2 gap-3">${me.map(card).join('')||''}</div>${me.length?'':empty('package-plus','Aún no publicaste nada','Vende o alquila lo que ya no usas y ayuda a otro estudiante.','Publicar ahora','startPub()')}`:PT=='fav'?`<div class="grid grid-cols-2 gap-3">${fv.map(card).join('')}</div>${fv.length?'':empty('heart','Aún no tienes favoritos','Toca el corazón de un producto para guardarlo y encontrarlo aquí.','Explorar productos',"root('home')")}`:ordersTab()}</div>
@@ -212,7 +212,7 @@ function pay(tot){if(window.io&&LV.me)return payLive();M('<div class="bg-white w
 const STS=['Pago confirmado','Coordinando entrega','Entregado','Finalizado'];
 function orderC(o,i){const p=P(o.id);return `<div class="border rounded-2xl p-3 mb-3"><div class="flex gap-3"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1"><p class="font-bold text-sm">${esc(p.t)}</p><p class="text-xs text-slate-500">${o.code} · ${o.d} · ${o.k=='venta'?'Compra':'Alquiler'}</p><b class="text-brand text-sm">${sol(o.tot)}</b></div></div>
  ${o.pin?`<div class="mt-2 text-xs bg-blue-50 rounded-xl p-2">🔐 Código de entrega: <b class="tracking-widest text-sm">${o.pin}</b> · compártelo al recibir, con tu carné UPC</div>`:''}<div class="mt-3 text-xs">${STS.map((s,n)=>`<div class="flex items-center gap-2 py-0.5 ${n<=o.st?'text-brand font-semibold':'text-slate-400'}"><i data-lucide="${n<=o.st?'check-circle-2':'circle'}" class="w-4"></i>${s}</div>`).join('')}</div>
- ${o.st<3?`<button class="chip mt-2" onclick="ST.orders[${i}].st++;save();R(1)">Avanzar estado (demo)</button>`:`<button class="chip mt-2" onclick="rate()">⭐ Calificar vendedor</button>`}</div>`}
+ ${o.st<3?`<button class="chip mt-2" onclick="ST.orders[${i}].st++;save();R(1)">Avanzar estado (demo)</button>`:'<p class="text-xs text-slate-400 mt-2">Pedido de demostración: las reseñas reales se hacen con pedidos confirmados con código.</p>'}</div>`}
 /* Publicar con Vision AI */
 const SAMPLES=[
 {l:'Dron',ph:'dron',a:{t:'Dron DJI Mini 2 SE',cat:'Cámaras',cond:'Semi nuevo',mode:'ambos',price:1850,rent:100,dep:350,tags:['Dron','Cámara 2.7K','Baterías'],desc:'Dron plegable con cámara 2.7K, ideal para topografía y tomas aéreas de proyectos. Incluye 2 baterías, control y estuche.'}},
@@ -239,11 +239,11 @@ function aiCard(p){const s2=SEL[p.s],k=fairPct(p),be=p.price&&p.rent?Math.ceil(p
  if(p.price){const m=Math.round(p.price/(1-k/100));li.push(k>=10?`Está <b>${k}% por debajo</b> del precio de mercado (≈ ${sol(m)}). Buen momento para comprar.`:k<=-5?`Está algo sobre el mercado (≈ ${sol(m)}). Prueba <b>hacer una oferta</b>.`:`Precio alineado al mercado (≈ ${sol(m)}).`)}
  if(be)li.push(`Si lo usarás menos de <b>${be} días</b>, alquilar sale más barato que comprar.`);
  if(p.rent&&p.dep)li.push(`Depósito de ${sol(p.dep)} reembolsable al devolverlo en buen estado.`);
- li.push(`${s2.n.split(' ')[0]} tiene ${s2.r}★ en ${s2.c} reseñas y entrega en ${CAMP[s2.cp]}.`);
+ {const rr=rtOf(p.s);li.push(rr.count?`${s2.n.split(' ')[0]} tiene ${rr.avg.toFixed(1)}★ en ${rr.count} reseña${rr.count>1?'s':''} verificada${rr.count>1?'s':''} y entrega en ${CAMP[s2.cp]}.`:`${s2.n.split(' ')[0]} aún no tiene reseñas; entrega en ${CAMP[s2.cp]}.`)}
  return `<div class="mt-4 rounded-2xl p-4 border border-purple-100" style="background:linear-gradient(135deg,#faf5ff,#fdf2f8)"><p class="text-xs font-bold text-purple-700 flex items-center gap-1 mb-2"><i data-lucide="sparkles" class="w-4"></i>Análisis de U2U AI</p><ul class="text-[13px] text-slate-700 space-y-1.5">${li.map(x=>`<li class="flex gap-2"><span class="text-purple-400">•</span><span>${x}</span></li>`).join('')}</ul></div>`}
 function aiChips(p){const c=['¿Sigue disponible?','¿Dónde nos vemos?'];c.push(p.price?'Ofrezco S/ '+Math.round(p.price*.9):'¿Aceptas alquilar 3 días?');return c}
 function nGo(id){X();id>=0?openP(id):root('profile')}
-function notifM(){const n=[['sparkles','Bajó el precio','El dron DJI Mini 3 Pro bajó de S/ 2,200 a S/ 2,100',10],['map-pin','Nuevo en San Miguel','Juan publicó un nivel de ingeniero Topcon para alquilar',24],['tag','Alerta de precio','Calculadora HP Prime ahora también en alquiler: S/ 25/día',19],['star','Reseña nueva','Lucía R. te calificó con 5★',-1]];
+function notifM(){const n=[['sparkles','Bajó el precio','El dron DJI Mini 3 Pro bajó de S/ 2,200 a S/ 2,100',10],['map-pin','Nuevo en San Miguel','Juan publicó un nivel de ingeniero Topcon para alquilar',24],['tag','Alerta de precio','Calculadora HP Prime ahora también en alquiler: S/ 25/día',19]];
  M(`<div class="bg-white w-full rounded-t-3xl p-5 pop"><p class="font-bold text-lg mb-2 flex items-center gap-2">Notificaciones <span class="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">✨ filtradas por IA</span></p>${n.map(a=>`<div onclick="nGo(${a[3]})" class="flex gap-3 py-3 border-b cursor-pointer"><span class="w-9 h-9 rounded-full bg-blue-50 text-brand grid place-items-center shrink-0"><i data-lucide="${a[0]}" class="w-4"></i></span><div><p class="font-semibold text-sm">${a[1]}</p><p class="text-xs text-slate-500">${a[2]}</p></div></div>`).join('')}</div>`)}
 let AIC=[{r:'ai',t:'¡Hola Jared! Soy U2U AI ✨. Dime qué necesitas (curso, presupuesto o campus) y busco las mejores opciones en los 4 campus de UPC.',n:999,c:[]}],AIB=0;
 const nrm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -285,7 +285,7 @@ function ahorroM(){M(`<div class="bg-white w-full rounded-t-3xl p-6 pop"><p clas
 function manifM(){M(`<div class="bg-white w-full rounded-t-3xl p-6 pop max-h-[85%] overflow-y-auto no-sb"><p class="font-bold text-lg">💡 Manifiesto U2U · UPC</p><div class="text-sm text-slate-700 leading-relaxed space-y-2 mt-3"><p>U2U es una plataforma digital peruana pensada para reducir el costo de los materiales universitarios, enfocada en la <b>Universidad Peruana de Ciencias Aplicadas</b> y sus <b>4 sedes</b>: Monterrico, San Isidro, Villa y San Miguel.</p><p><b>Ciclos avanzados:</b> rentabilizan libros, calculadoras, cámaras y herramientas que ya no usan.</p><p><b>Ciclos iniciales:</b> compran o alquilan equipos a precios justos sin salir del campus.</p><p>Así fomentamos el ahorro estudiantil y una comunidad basada en el consumo responsable y la reutilización.</p></div><button class="btn mt-4" onclick="X()">Cerrar</button></div>`)}
 /* ===================== V8: TIEMPO REAL (Socket.io) ===================== */
 /* Si /socket.io/socket.io.js no carga (archivo abierto sin servidor), la app sigue en modo local simulado. */
-const LV={ld:{p:0,h:0,o:0},me:null,pref:null,idc:null,convs:{},orders:{},pres:{total:0,uids:[]},chips:[]};
+const LV={ld:{p:0,h:0,o:0},me:null,pref:null,idc:null,convs:{},orders:{},pres:{total:0,uids:[]},chips:[],rep:new Set(),rt:{},rv:{},rl:{},adm:false,rpt:null};
 let sock=null,MT='chats';
 try{LV.pref=JSON.parse(localStorage.getItem('u2u7')||'null')}catch(e){}
 PR.forEach(p=>{if(p.cond=='Como nuevo')p.cond='Semi nuevo'});
@@ -296,7 +296,7 @@ const rnd=n=>{const a=new Uint8Array(n);try{crypto.getRandomValues(a)}catch(e){f
 function myId(fresh){if(fresh)LV.idc=null;if(LV.idc)return LV.idc;try{if(!fresh)LV.idc=JSON.parse(localStorage.getItem('u2uid')||'null')}catch(e){}
  if(!LV.idc||!LV.idc.uid||!LV.idc.secret){LV.idc={uid:'u_'+rnd(5),secret:rnd(16)};try{localStorage.setItem('u2uid',JSON.stringify(LV.idc))}catch(e){}}return LV.idc}
 const myUid=()=>myId().uid,joinData=()=>({uid:LV.me.uid,secret:myId().secret,name:LV.me.name});
-function liveJoin(name){if(window.io){LV.ld={p:1,h:1,o:1};clearTimeout(LV.ldT);LV.ldT=setTimeout(()=>{LV.ld={p:0,h:0,o:0};if(['home','msgs','profile'].includes(S.s))R(1)},6000)}SEL[ME].n=name;LV.me={uid:myUid(),name};LV.pref={name};try{localStorage.setItem('u2u7',JSON.stringify(LV.pref))}catch(e){}if(sock&&sock.connected)sock.emit('join',joinData())}
+function liveJoin(name){if(window.io){LV.ld={p:1,h:1,o:1};clearTimeout(LV.ldT);LV.ldT=setTimeout(()=>{LV.ld={p:0,h:0,o:0};if(['home','msgs','profile'].includes(S.s))R(1)},6000)}SEL[ME].n=name;SEL[ME].uid=myUid();LV.me={uid:myUid(),name};LV.pref={name};try{localStorage.setItem('u2u7',JSON.stringify(LV.pref))}catch(e){}if(sock&&sock.connected)sock.emit('join',joinData())}
 
 function liveStart(){if(!window.io)return;
  sock=io();
@@ -307,6 +307,14 @@ function liveStart(){if(!window.io)return;
  sock.on('history',l=>{LV.ld.h=0;const old=LV.convs;LV.convs={};l.forEach(c=>{c.un=(old[c.key]&&old[c.key].un)||0;LV.convs[c.key]=c});if(S.s=='msgs')R(1);if(S.s=='lchat')lchatR(S.a);navDot()});
  sock.on('orders',l=>{LV.ld.o=0;LV.orders={};l.forEach(o=>LV.orders[o.id]=o);if(S.s=='msgs'||S.s=='profile')R(1);navDot()});
  sock.on('order',onOrder);
+ sock.on('blocked',()=>sessionOut('Tu cuenta fue bloqueada por incumplir las normas de la comunidad.'));
+ sock.on('removed',l=>(l||[]).forEach(id=>dropProduct(id)));
+ sock.on('product-removed',d=>dropProduct(d.id,1));
+ sock.on('reported',l=>{LV.rep=new Set((l||[]).map(Number));if(S.s=='detail')R(1)});
+ sock.on('ratings',m=>{LV.rt=m||{};if(['detail','seller','profile'].includes(S.s))R(1)});
+ sock.on('rating',d=>{LV.rt[d.uid]=d.count?{avg:d.avg,count:d.count}:undefined;delete LV.rv[d.uid];if(['detail','seller','profile'].includes(S.s))R(1)});
+ sock.on('review:new',d=>toast('⭐ '+d.from+' te calificó con '+d.rating+'★'));
+ sock.on('admin:reports',d=>{LV.rpt=d;if(S.s=='admin'||S.s=='profile')R(1)});
  sock.on('msg',onMsg);
  sock.on('products',l=>{LV.ld.p=0;onProducts(l);if(S.s=='home')gridR()});
  sock.on('new-product',onNewProduct);
@@ -377,7 +385,7 @@ function onOrder(o){if(!LV.me)return;const old=LV.orders[o.id];LV.orders[o.id]=o
 function showDone(o){const buyer=o.buyerId==LV.me.uid,k=o.mode=='compra'?'compra':'alquiler';
  M(`<div class="bg-white w-full rounded-t-3xl p-7 text-center pop"><div class="w-16 h-16 bg-emerald-100 text-mint rounded-full grid place-items-center mx-auto"><i data-lucide="check" class="w-9 h-9"></i></div><p class="font-extrabold text-xl mt-3">¡Entrega confirmada! 🎉</p>
  <p class="text-sm text-slate-500 mt-1">${buyer?`Recibiste <b>${esc(o.t)}</b> de ${esc(o.ownerName)}. Tu ${k} quedó completada.`:`Entregaste <b>${esc(o.t)}</b> a ${esc(o.buyerName)}. Tu ${k=='compra'?'venta':'alquiler'} quedó completada.`}</p>
- ${buyer?'<button class="btn mt-5" onclick="rate()">⭐ Calificar</button>':''}<button class="w-full py-3 text-slate-500" onclick="X()">Listo</button></div>`)}
+ ${buyer?`<button class="btn mt-5" onclick="rate('${o.id}')">⭐ Calificar</button>`:''}<button class="w-full py-3 text-slate-500" onclick="X()">Listo</button></div>`)}
 function confirmOrder(id){const i=document.querySelector(`.pin-in[data-o="${id}"]`),pin=((i&&i.value)||'').replace(/[^0-9]/g,'');
  if(pin.length!=6)return toast('Ingresa los 6 dígitos del código');
  if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
@@ -394,7 +402,7 @@ function ordCard(o){const me=LV.me.uid,buyer=o.buyerId==me,sb=STB[o.status],pend
  ${pend&&buyer&&o.pin?`<div class="mt-3 rounded-2xl p-4 text-center" style="background:linear-gradient(135deg,#eef2ff,#e0f2fe)"><p class="text-[11px] font-semibold text-slate-600">🔐 Tu código de entrega</p><p class="text-4xl font-black tracking-[.25em] text-navy my-1 select-all">${fpin(o.pin)}</p><p class="text-[11px] text-slate-500 leading-snug">Muéstraselo o díctaselo a <b>${esc(o.ownerName)}</b> <u>solo cuando recibas el producto</u> en ${CAMP[o.cp]}. Al ingresarlo en U2U se completa la transacción.</p></div>`:''}
  ${pend&&!buyer?`<div class="mt-3 rounded-2xl p-3 bg-blue-50"><p class="text-xs font-semibold text-navy">Al entregar el producto, pídele a ${esc(o.buyerName)} su código de 6 dígitos:</p><div class="flex gap-2 mt-2 items-center"><input data-o="${o.id}" class="pin-in flex-1 min-w-0 text-center text-xl font-bold tracking-[.3em] border rounded-xl py-2 outline-none" inputmode="numeric" maxlength="6" placeholder="••••••" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)" ${o.locked?'disabled':''}><button class="bg-brand text-white font-bold rounded-xl px-4 py-3 text-sm" onclick="confirmOrder('${o.id}')">Confirmar entrega</button></div>${o.locked?'<p class="text-[11px] text-red-500 mt-1">Bloqueado por intentos fallidos. Inténtalo en unos minutos.</p>':''}</div>`:''}
  ${o.status=='completed'?`<p class="mt-2 text-xs text-emerald-700 bg-emerald-50 rounded-xl p-2">✅ ${buyer?'Recibiste el producto':'Entregaste el producto'} · ${new Date(o.doneAt).toLocaleString('es-PE',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>`:''}
- <div class="flex gap-2 mt-3 flex-wrap"><button class="chip" onclick="orderChat('${o.id}')">💬 Chat</button>${pend?`<button class="chip" onclick="cancelOrder('${o.id}')">Cancelar pedido</button>`:''}${o.status=='completed'&&buyer?'<button class="chip" onclick="rate()">⭐ Calificar</button>':''}</div></div>`}
+ <div class="flex gap-2 mt-3 flex-wrap"><button class="chip" onclick="orderChat('${o.id}')">💬 Chat</button>${pend?`<button class="chip" onclick="cancelOrder('${o.id}')">Cancelar pedido</button>`:''}${o.status=='completed'&&buyer?(o.reviewed?'<span class="text-xs text-emerald-700 self-center">✓ Reseña enviada</span>':`<button class="chip" onclick="rate('${o.id}')">⭐ Calificar</button>`):''}</div></div>`}
 function liveOrdersH(){if(LV.ld.o)return skRows(3);const l=Object.values(LV.orders).sort((a,b)=>b.ts-a.ts);
  return l.map(ordCard).join('')||empty('package','Aún no tienes pedidos','Cuando compres, alquiles o te compren algo, aparecerá aquí con su código de entrega.','Explorar productos',"root('home')")}
 const ordersTab=()=>(window.io&&LV.me)?liveOrdersH():(ST.orders.map((o,i)=>orderC(o,i)).join('')||empty('package','Aún no tienes pedidos','Cuando compres, alquiles o te compren algo, aparecerá aquí con su código de entrega.','Explorar productos',"root('home')"));
@@ -431,7 +439,7 @@ const stH=p=>p.status=='reserved'?'<div class="mt-3 bg-amber-50 text-amber-800 r
 /* ---------- Publicaciones compartidas en vivo ---------- */
 const RS={};/* publicadores remotos: uid -> índice en SEL */
 function sellerIdx(uid,name,cp){if(LV.me&&uid==LV.me.uid)return ME;let i=RS[uid];
- if(i==null){SEL.push({n:name,r:5,c:0,car:'Estudiante UPC',cp,v:new Date().getFullYear(),ci:'—'});i=RS[uid]=SEL.length-1}
+ if(i==null){SEL.push({n:name,uid,r:5,c:0,car:'Estudiante UPC',cp,v:new Date().getFullYear(),ci:'—'});i=RS[uid]=SEL.length-1}
  else{SEL[i].n=name;SEL[i].cp=cp}return i}
 function addRemote(d){if(!d||!d.id)return false;const ex=P(d.id);
  if(ex){if(d.status&&ex.status!=d.status){ex.status=d.status;return true}return false}
@@ -447,6 +455,7 @@ function onProducts(list){if(!LV.me)return;list=list||[];let n=0;list.forEach(d=
 function shareProduct(p,quiet){if(!sock||!sock.connected||!LV.me)return;
  sock.emit('new-product',{id:p.id,t:p.t,ph:p.ph,cat:p.cat,mode:p.mode,price:p.price,rent:p.rent,dep:p.dep,cond:p.cond,car:p.car||[],cp:SEL[ME].cp,desc:p.desc},r=>{
   if(!r||(r.ok&&r.id==p.id))return;
+  if(r.removed){dropProduct(p.id);return}
   if(r.error){if(!quiet)toast('Se publicó solo en tu dispositivo: '+r.error);return}
   if(r.id&&r.id!=p.id){p.id=r.id;save()}})}
 
@@ -467,10 +476,16 @@ function askConfirm(o){return new Promise(res=>{window._cfr=res;M(`<div class="b
 function cfAns(v){const r=window._cfr;window._cfr=null;X();if(r)r(v)}
 document.addEventListener('keydown',e=>{if(e.key=='Escape'&&!$('#modal').classList.contains('hidden'))X()});
 /* calificación con estrellas */
-const RTX=['','Malo','Regular','Bueno','Muy bueno','Excelente'];let RV=0;
-function rate(){RV=0;M(`<div class="bg-white w-full rounded-t-3xl p-6 text-center pop" role="dialog" aria-modal="true" aria-labelledby="rtt"><p id="rtt" class="font-bold text-lg text-navy">¿Cómo fue tu experiencia?</p><div id="rs" role="radiogroup" aria-label="Calificación" class="flex justify-center gap-1 my-3">${[1,2,3,4,5].map(n=>`<button role="radio" aria-checked="false" aria-label="${n} de 5" data-n="${n}" onclick="rateSet(${n})" class="w-12 h-12 text-4xl leading-none text-slate-300 transition active:scale-90">★</button>`).join('')}</div><p id="rt" aria-live="polite" class="text-sm text-slate-500 h-5">Toca una estrella</p><button id="rsend" class="btn mt-4" disabled onclick="rateSend()">Enviar calificación</button><button class="w-full py-3 text-slate-500" onclick="X()">Ahora no</button></div>`)}
+const RTX=['','Malo','Regular','Bueno','Muy bueno','Excelente'];let RV=0,RO='';
+function rate(oid){
+ if(!oid||!window.io||!LV.me)return toast('Las reseñas solo se guardan tras una entrega confirmada con código');
+ const o=LV.orders[oid];if(!o||o.buyerId!=LV.me.uid||o.status!='completed')return toast('Solo puedes calificar pedidos con entrega confirmada');
+ if(o.reviewed)return toast('Ya calificaste este pedido');
+ RV=0;RO=oid;M(`<div class="bg-white w-full rounded-t-3xl p-6 text-center pop" role="dialog" aria-modal="true" aria-labelledby="rtt"><p id="rtt" class="font-bold text-lg text-navy">¿Cómo fue tu experiencia con ${esc(o.ownerName)}?</p><p class="text-xs text-slate-500">${esc(o.t)}</p><div id="rs" role="radiogroup" aria-label="Calificación" class="flex justify-center gap-1 my-3">${[1,2,3,4,5].map(n=>`<button role="radio" aria-checked="false" aria-label="${n} de 5" data-n="${n}" onclick="rateSet(${n})" class="w-12 h-12 text-4xl leading-none text-slate-300 transition active:scale-90">★</button>`).join('')}</div><p id="rt" aria-live="polite" class="text-sm text-slate-500 h-5">Toca una estrella</p><textarea id="rtx" maxlength="300" placeholder="Cuéntanos cómo fue (opcional)" class="inp mt-3 h-20 resize-none"></textarea><button id="rsend" class="btn mt-2" disabled onclick="rateSend()">Enviar reseña</button><button class="w-full py-3 text-slate-500 font-semibold" onclick="X()">Ahora no</button></div>`)}
 function rateSet(n){RV=n;document.querySelectorAll('#rs button').forEach(b=>{const k=+b.dataset.n,on=k<=n;b.classList.toggle('text-amber-400',on);b.classList.toggle('text-slate-300',!on);b.classList.toggle('scale-110',on);b.setAttribute('aria-checked',k==n)});const e=$('#rt');e.textContent=n+' de 5 · '+RTX[n];e.className='text-sm font-semibold text-amber-500 h-5';$('#rsend').disabled=false}
-function rateSend(){if(!RV)return;const n=RV;X();toast('¡Gracias por tu reseña de '+n+' ★!')}
+function rateSend(){if(!RV||!RO)return;if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');const b=$('#rsend'),n=RV,id=RO;if(b)b.disabled=true;
+ sock.emit('review:create',{orderId:id,rating:n,text:($('#rtx')||{}).value||''},r=>{if(r&&r.error){if(b)b.disabled=false;if(/Ya calificaste/.test(r.error)&&LV.orders[id]){LV.orders[id].reviewed=true;X()}return toast(r.error)}
+  X();toast('¡Gracias por tu reseña de '+n+' ★!');if(LV.orders[id])LV.orders[id].reviewed=true;if(['msgs','profile'].includes(S.s))R(1)})}
 /* banner de reconexión */
 function netUI(down){const e=$('#net');if(!e)return;clearTimeout(e.t);
  if(down){e.dataset.d='1';e.className='absolute top-0 inset-x-0 z-[60] text-center text-xs font-semibold py-1.5 bg-amber-500 text-white';e.innerHTML='<span class="inline-block w-3 h-3 mr-1.5 align-[-2px] border-2 border-white border-t-transparent rounded-full animate-spin"></span>Reconectando…'}
@@ -507,17 +522,72 @@ async function authGo(m){const er=$('#a_er'),btn=$('#a_btn'),v=id=>($('#'+id)||{
  if(r.ok&&r.j.token)return authOk(r.j);
  btn.disabled=false;btn.textContent=m=='register'?'Crear cuenta':'Iniciar sesión';
  er.textContent=r.status==0?'No hay conexión con el servidor. Reintenta en unos segundos.':(r.j.error||'No se pudo completar. Intenta de nuevo.')}
-function authOk(j){try{localStorage.setItem(TK,j.token)}catch(e){}LV.idc={uid:j.user.uid,secret:j.user.secret};try{localStorage.setItem('u2uid',JSON.stringify(LV.idc))}catch(e){}LV.pref={name:j.user.name};netUI(0);liveJoin(j.user.name);root('home')}
+function authOk(j){LV.adm=!!(j.user&&j.user.admin);try{localStorage.setItem(TK,j.token)}catch(e){}LV.idc={uid:j.user.uid,secret:j.user.secret};try{localStorage.setItem('u2uid',JSON.stringify(LV.idc))}catch(e){}LV.pref={name:j.user.name};netUI(0);liveJoin(j.user.name);root('home')}
 /* sesión guardada: al abrir la app se valida el token y se entra directo */
 async function boot(n){n=n||0;let tk=null;try{tk=localStorage.getItem(TK)}catch(e){}
  if(!tk){S.s='login';return R()}
  S.s='boot';R();const r=await api('me',null,tk);
  if(r.ok&&r.j.user)return authOk({token:tk,user:r.j.user});
- if(r.status==401||r.status==403){try{localStorage.removeItem(TK)}catch(e){}S.s='login';return R()}
+ if(r.status==401||r.status==403){try{localStorage.removeItem(TK)}catch(e){}S.s='login';R();if(r.j&&r.j.blocked)toast(r.j.error);return}
  if(n<25){netUI(1);setTimeout(()=>{if(S.s=='boot')boot(n+1)},Math.min(1000+n*500,5000))}else{S.s='login';R()}}
 function bootInit(){let tk=null;try{tk=localStorage.getItem(TK)}catch(e){}if(window.io&&tk)boot();else R()}
 async function logout(){if(!await askConfirm({title:'¿Cerrar sesión?',msg:'Tendrás que volver a ingresar tu usuario y contraseña.',ok:'Cerrar sesión',no:'Volver',icon:'log-out'}))return;sessionOut()}
 function sessionOut(msg){let tk=null;try{tk=localStorage.getItem(TK)}catch(e){}if(tk&&window.io)api('logout',{},tk);try{localStorage.removeItem(TK);localStorage.removeItem('u2uid')}catch(e){}
- if(sock&&sock.connected)sock.emit('leave');LV.me=null;LV.idc=null;LV.convs={};LV.orders={};LV.ld={p:0,h:0,o:0};S.s='login';S.st=[];X();R();if(msg)toast(msg)}
+ if(sock&&sock.connected)sock.emit('leave');LV.me=null;LV.idc=null;LV.convs={};LV.orders={};LV.adm=false;LV.rpt=null;LV.rep=new Set();LV.rt={};LV.rv={};LV.rl={};LV.ld={p:0,h:0,o:0};S.s='login';S.st=[];X();R();if(msg)toast(msg)}
+
+/* ===== v8.4.0: reportes, reseñas verificadas y panel de moderación (el rol admin lo decide el servidor) ===== */
+function dropProduct(id,live){id=+id;const i=PR.findIndex(p=>p.id==id);if(i<0)return;const mine=PR[i].s==ME;PR.splice(i,1);ST.fav=ST.fav.filter(f=>f!=id);save();
+ if(live&&S.s=='detail'&&S.a==id){toast('Esta publicación fue eliminada por moderación');back()}
+ else if(live&&mine)toast('Una de tus publicaciones fue eliminada por incumplir las normas');
+ refreshCatalog();if(['profile','msgs','admin'].includes(S.s))R(1)}
+const agoT=ts=>{const m=Math.max(1,Math.round((Date.now()-ts)/6e4));return m<60?'hace '+m+' min':m<1440?'hace '+Math.round(m/60)+' h':'hace '+Math.round(m/1440)+' d'};
+
+/* Reportar publicación: el servidor guarda el motivo y no deja reportar lo mismo dos veces */
+const RSN=[['obscena','Contenido obsceno','Imágenes o texto inapropiados'],['estafa','Posible estafa','Pide pagos fuera de U2U o datos sospechosos'],['falsa','Información falsa','El producto no es lo que dice o está mal descrito'],['otro','Otro','Cuéntanos qué pasa']];
+let RP={id:0,r:'',n:''};
+const reportBtn=p=>{if(LV.adm)return '';return LV.rep.has(+p.id)?`<p class="mt-3 text-xs text-slate-400 flex items-center gap-1"><i data-lucide="flag" class="w-3.5"></i>Ya reportaste esta publicación</p>`:`<button onclick="reportM(${p.id})" class="mt-3 text-xs text-slate-500 flex items-center gap-1"><i data-lucide="flag" class="w-3.5"></i>Reportar publicación</button>`};
+function reportM(id){if(!window.io||!LV.me)return toast('Inicia sesión para reportar publicaciones');const p=P(id);
+ if(!p)return;if(p.own==LV.me.uid||p.s==ME)return toast('Esta es tu publicación');
+ if(!p.own)return toast('Producto de ejemplo: solo se reportan publicaciones de otros estudiantes');
+ if(LV.rep.has(+id))return toast('Ya reportaste esta publicación');RP={id:+id,r:'',n:''};M(reportH(1))}
+const reportH=first=>`<div class="bg-white w-full rounded-t-3xl p-6 ${first?'pop':''}" role="dialog" aria-modal="true" aria-labelledby="rpt"><p id="rpt" class="font-bold text-lg text-navy">Reportar publicación</p><p class="text-xs text-slate-500 mb-3">Elige el motivo. Un administrador la revisará.</p><div role="radiogroup" aria-label="Motivo" class="space-y-2">${RSN.map(x=>`<button role="radio" aria-checked="${RP.r==x[0]}" onclick="rpSet('${x[0]}')" class="w-full text-left border rounded-xl p-3 flex gap-3 items-center ${RP.r==x[0]?'border-brand bg-blue-50':''}"><span class="w-4 h-4 shrink-0 rounded-full border-2 ${RP.r==x[0]?'border-brand bg-brand':'border-slate-300'}"></span><span><b class="text-sm block">${x[1]}</b><span class="text-xs text-slate-500">${x[2]}</span></span></button>`).join('')}</div><textarea id="rpn" maxlength="200" oninput="RP.n=this.value" placeholder="${RP.r=='otro'?'Cuéntanos el motivo (obligatorio)':'Detalle (opcional)'}" class="inp mt-3 h-20 resize-none">${esc(RP.n)}</textarea><button id="rpb" class="btn mt-2" onclick="rpSend()">Enviar reporte</button><button class="w-full py-3 text-slate-500 font-semibold" onclick="X()">Cancelar</button></div>`;
+function rpSet(k){RP.r=k;M(reportH(0))}
+function rpSend(){if(!RP.r)return toast('Elige un motivo');if(RP.r=='otro'&&RP.n.trim().length<3)return toast('Cuéntanos brevemente el motivo');
+ if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');const b=$('#rpb'),id=RP.id;if(b)b.disabled=true;
+ sock.emit('report:create',{pid:id,reason:RP.r,note:RP.n},r=>{
+  if(r&&r.error){if(b)b.disabled=false;toast(r.error);if(/Ya reportaste/.test(r.error)){LV.rep.add(id);X();if(S.s=='detail')R(1)}else if(/ya no existe/.test(r.error)){X();dropProduct(id)}return}
+  LV.rep.add(id);X();toast('Reporte enviado. Gracias por cuidar la comunidad');if(S.s=='detail')R(1)})}
+
+/* Reseñas reales (solo con entrega confirmada con PIN, una por pedido) */
+const rtOf=i=>{const u=SEL[i]&&SEL[i].uid,r=u&&LV.rt[u];return r?{avg:r.avg,count:r.count}:{avg:0,count:0}};
+const rtH=i=>{const r=rtOf(i);return r.count?`${stars(r.avg)} <span class="text-slate-500">${r.avg.toFixed(1)} (${r.count} reseña${r.count>1?'s':''})</span>`:'<span class="text-slate-400">Sin reseñas todavía</span>'};
+function ensureRev(u,i){if(LV.rl[u]||!sock||!sock.connected)return;LV.rl[u]=1;
+ sock.emit('reviews:get',{uid:u},r=>{LV.rl[u]=0;LV.rv[u]=(r&&r.ok)?r.list:[];if(r&&r.ok)LV.rt[u]=r.count?{avg:r.avg,count:r.count}:undefined;if(S.s=='seller'&&S.a==i)R(1)})}
+function revH(i){const u=SEL[i]&&SEL[i].uid;if(!u)return '<p class="text-xs text-slate-400 mb-2">Este vendedor aún no tiene reseñas verificadas.</p>';
+ const L=LV.rv[u];if(!L){ensureRev(u,i);return '<div class="sk h-14 rounded-xl mb-2"></div><div class="sk h-14 rounded-xl mb-2"></div>'}
+ return L.length?L.map(r=>`<div class="border rounded-xl p-3 mb-2 text-sm"><div class="flex justify-between"><b>${esc(r.buyerName)}</b><span class="text-amber-500 text-xs">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span></div><p class="text-[10px] text-slate-400">${esc(r.pt)} · ${r.mode=='alquiler'?'Alquiler':'Compra'} verificada · ${new Date(r.ts).toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'})}</p>${r.text?`<p class="text-slate-600 text-xs mt-1">${esc(r.text)}</p>`:''}</div>`).join(''):'<p class="text-xs text-slate-400 mb-2">Todavía no hay reseñas. Aparecerán cuando un comprador califique una entrega confirmada con código.</p>'}
+
+/* Panel de moderación: solo se muestra si el servidor lo marcó admin; cada acción la revalida el servidor */
+const RSL={obscena:'Obscena',estafa:'Estafa',falsa:'Falsa',otro:'Otro'};let AT='open';
+const adminBtn=()=>{const n=LV.rpt?LV.rpt.reports.filter(r=>r.status=='open').length:0;return `<button onclick="nav('admin')" class="mt-3 w-full flex items-center gap-3 border-2 border-red-200 bg-red-50 text-red-700 rounded-2xl p-3 text-left"><i data-lucide="shield-alert" class="w-6 h-6 shrink-0"></i><span class="flex-1"><b class="text-sm block">Panel de moderación</b><span class="text-xs">Reportes, publicaciones y usuarios</span></span>${n?`<span class="min-w-[22px] h-[22px] px-1.5 bg-red-600 text-white rounded-full text-xs font-bold grid place-items-center">${n}</span>`:''}</button>`};
+const repCard=r=>{const open=r.status=='open',st=r.status=='dismissed'?'Reporte descartado':(r.resolution=='blocked'?'Usuario bloqueado':'Publicación eliminada');
+ return `<div class="border rounded-2xl p-3 mb-3"><div class="flex items-start justify-between gap-2"><span class="text-[10px] font-bold px-2 py-1 rounded-full bg-red-50 text-red-600">${RSL[r.reason]||esc(r.reason)}</span><span class="text-[10px] text-slate-400">${agoT(r.ts)}</span></div>
+ <p class="font-bold text-sm mt-2">${esc(r.pt)}</p><p class="text-xs text-slate-500">${r.pmode=='alquiler'?sol(r.prent||0)+'/día':sol(r.pprice||0)} · ${esc(r.pcat||'')}</p>
+ <p class="text-xs text-slate-500 mt-1">Vendedor: <b>${esc(r.ownerName)}</b> · Reportó: <b>${esc(r.reporterName)}</b>${r.count>1?` · <b class="text-red-600">${r.count} reportes de esta publicación</b>`:''}</p>
+ ${r.note?`<p class="text-xs bg-slate-50 rounded-xl p-2 mt-2 text-slate-700">“${esc(r.note)}”</p>`:''}
+ ${open?`<div class="grid grid-cols-2 gap-2 mt-3">${r.live?`<button class="chip" onclick="admView(${r.pid})">👁 Ver publicación</button>`:'<span class="chip opacity-50 text-center">Ya no está en línea</span>'}<button class="chip" onclick="admDismiss('${r.id}')">Descartar reporte</button><button class="chip !bg-red-50 !text-red-600" onclick="admDelete(${r.pid})">🗑 Eliminar publicación</button><button class="chip !bg-red-50 !text-red-600" onclick="admBlock('${r.ownerUid}')">⛔ Bloquear usuario</button></div>`:`<p class="text-xs mt-2 font-semibold text-slate-600">${st}${r.resolvedAt?' · '+agoT(r.resolvedAt):''}</p>`}</div>`};
+const blkCard=u=>`<div class="border rounded-2xl p-3 mb-3 flex items-center gap-3"><div class="flex-1"><p class="font-bold text-sm">${esc(u.name)}</p><p class="text-xs text-slate-500">@${esc(u.username)}${u.blockedAt?' · bloqueado '+agoT(u.blockedAt):''}</p></div><button class="chip" onclick="admUnblock('${u.uid}')">Desbloquear</button></div>`;
+V.admin=()=>{if(!LV.adm)return hd('Moderación')+'<p class="p-6 text-center text-slate-500">No autorizado</p>';
+ const d=LV.rpt;if(!d)return hd('Moderación')+`<div class="p-5">${skRows(3)}</div>`;
+ const open=d.reports.filter(r=>r.status=='open'),done=d.reports.filter(r=>r.status!='open'),
+ tab=(k,t,n)=>`<button onclick="AT='${k}';R(1)" class="py-2 rounded-lg ${AT==k?'bg-white shadow text-brand':'text-slate-500'}">${t}${n?' ('+n+')':''}</button>`,
+ body=AT=='open'?(open.map(repCard).join('')||empty('shield-check','Sin reportes pendientes','Cuando alguien reporte una publicación aparecerá aquí.')):AT=='done'?(done.map(repCard).join('')||empty('inbox','Aún no hay reportes resueltos','')):(d.blocked.map(blkCard).join('')||empty('user-check','No hay usuarios bloqueados',''));
+ return hd('Moderación')+`<div class="p-5 pb-28"><div class="grid grid-cols-3 bg-slate-100 rounded-xl p-1 text-xs font-semibold mb-4">${tab('open','Pendientes',open.length)}${tab('done','Resueltos',0)}${tab('blk','Bloqueados',d.blocked.length)}</div>${body}</div>`};
+function admEmit(ev,data,ok){if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');sock.emit(ev,data,r=>{if(r&&r.error)return toast(r.error);if(ok)toast(ok)})}
+function admView(pid){if(!P(pid))return toast('La publicación ya no existe');openP(pid)}
+async function admDelete(pid){if(!await askConfirm({title:'¿Eliminar esta publicación?',msg:'Desaparecerá para todos al instante y se resolverán sus reportes.',ok:'Sí, eliminar',no:'Volver',danger:1,icon:'trash-2'}))return;admEmit('admin:delete',{pid},'Publicación eliminada')}
+function admDismiss(id){admEmit('admin:dismiss',{id},'Reporte descartado')}
+async function admBlock(uid){const r=LV.rpt&&LV.rpt.reports.find(x=>x.ownerUid==uid);if(!await askConfirm({title:'¿Bloquear a '+esc(r?r.ownerName:'este usuario')+'?',msg:'No podrá iniciar sesión y todas sus publicaciones se eliminarán.',ok:'Sí, bloquear',no:'Volver',danger:1,icon:'ban'}))return;admEmit('admin:block',{uid},'Usuario bloqueado')}
+function admUnblock(uid){admEmit('admin:unblock',{uid},'Usuario desbloqueado')}
 
 bootInit();
