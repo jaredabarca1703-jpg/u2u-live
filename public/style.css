@@ -1,0 +1,14 @@
+html,body{font-family:Poppins,system-ui,sans-serif}
+#v{animation:fade .3s}@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}.pop{animation:pop .35s}
+.no-sb::-webkit-scrollbar{display:none}.no-sb{scrollbar-width:none}
+.map{background:linear-gradient(90deg,transparent 48%,#fff 48% 52%,transparent 52%) 0 0/90px 90px,linear-gradient(0deg,transparent 48%,#fff 48% 52%,transparent 52%) 0 0/90px 90px,linear-gradient(115deg,transparent 40%,#fde68a 40% 42%,transparent 42%) 0 0/260px 260px,#e2ecdf}
+#sheet{transition:transform .35s}
+.pin{background:#fff;border:2px solid;border-radius:12px;padding:2px 7px;font:700 10px Poppins,sans-serif;white-space:nowrap;box-shadow:0 4px 10px rgba(0,0,0,.25);transform:translate(-50%,-110%)}
+.leaflet-container{font-family:inherit}
+.campus{background:#1e2a78;color:#fff;border:2px solid #fff;border-radius:99px;padding:4px 10px;font:700 10px Poppins,sans-serif;white-space:nowrap;transform:translate(-50%,-50%);box-shadow:0 4px 12px rgba(30,42,120,.4)}.campus.on{background:#7c3aed}
+@keyframes aig{from{box-shadow:0 0 8px rgba(168,85,247,.4)}to{box-shadow:0 0 24px rgba(236,72,153,.85)}}.ai-pulse{animation:aig 2s infinite alternate}
+@keyframes scan{from{top:0}to{top:calc(100% - 3px)}}.scanl{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#a855f7,transparent);box-shadow:0 0 14px #a855f7;animation:scan 1.2s linear infinite alternate}
+.chip{white-space:nowrap;padding:.4rem .9rem;border-radius:99px;font-size:12px;font-weight:600;border:1px solid #e2e8f0;background:#fff}.chip.on{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.inp{width:100%;border:1px solid #e2e8f0;border-radius:.9rem;padding:.75rem;font-size:14px;outline:none;margin:.25rem 0 .75rem}.inp:focus{border-color:#3b82f6;box-shadow:0 0 0 3px #3b82f622}
+.btn{background:#3b82f6;color:#fff;font-weight:700;border-radius:1rem;padding:.9rem;width:100%;transition:.15s}.btn:active{transform:scale(.97)}.btn:disabled{opacity:.4}
