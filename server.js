@@ -1,7 +1,8 @@
 /* U2U · servidor de tiempo real (Express + Socket.io)
  * - Sirve la app desde /public
- * - Sin registro ni roles: cada dispositivo entra con un nombre y una identidad propia
- *   (uid público + secreto privado) para que nadie pueda suplantar a otro.
+ * - Cuentas con usuario/correo + contraseña (auth.js, crypto.scrypt) y sesión por token.
+ *   El servidor emite a cada cuenta su identidad (uid público + secreto privado) y solo
+ *   deja entrar al chat en vivo a cuentas registradas: nadie puede suplantar a otro.
  * - Cualquier usuario puede publicar, comprar, alquilar y chatear.
  * - Publicaciones: se guardan, se reenvían en vivo a todos y se entregan a quien entre después.
  * - Chat PRIVADO por producto: solo lo ven el interesado y el dueño de ese producto.
@@ -15,11 +16,14 @@ const http = require('http');
 const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
+const accounts = require('./auth');
 
 const app = express();
+app.set('trust proxy', 1); // Render va detrás de un proxy: así req.ip es la IP real (límite de intentos)
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e6 }); // 1 MB por mensaje (fotos incluidas)
 
+accounts.mount(app); // /api/register, /api/login, /api/me, /api/logout
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
 
@@ -35,7 +39,6 @@ const convs = new Map();    // "pid|buyerId" -> { key, pid, buyerId, buyerName, 
 const products = new Map(); // id -> publicación (catálogo compartido)
 const owners = new Map();   // pid -> uid del dueño
 const orders = new Map();   // id -> pedido
-const auth = new Map();     // uid -> secreto
 let lastId = Date.now();
 
 const ownerOf = (pid) => owners.get(pid);
@@ -126,14 +129,9 @@ io.on('connection', (socket) => {
     d = d || {};
     const uid = String(d.uid || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24);
     const secret = String(d.secret || '').slice(0, 64);
-    if (uid.length < 6 || secret.length < 16) return socket.emit('denied');
-    const known = auth.get(uid);
-    if (known && known !== secret) return socket.emit('denied'); // intento de suplantación
-    if (!known) {
-      auth.set(uid, secret);
-      if (auth.size > 5000) auth.delete(auth.keys().next().value);
-    }
-    const name = String(d.name || '').trim().slice(0, 24) || 'Anónimo';
+    const acc = accounts.accountFor(uid, secret); // solo cuentas registradas, con el secreto que emitió el servidor
+    if (!acc) return socket.emit('denied');
+    const name = acc.name; // el nombre sale de la cuenta, no del cliente
 
     if (socket.data.uid) socket.leave('u:' + socket.data.uid);
     socket.data = { uid, name, hits: [], pubs: [], ords: [] };
@@ -340,4 +338,5 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
+['SIGTERM', 'SIGINT'].forEach((s) => process.on(s, () => { accounts.flush(); process.exit(0); })); // guarda cuentas al apagar
 server.listen(PORT, () => console.log('U2U en vivo escuchando en el puerto ' + PORT));
