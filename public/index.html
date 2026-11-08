@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2f4bd8"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="U2U">
+<link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png">
 <title>U2U · Compra, Vende, Alquila</title>
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
@@ -10,13 +12,14 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=8.1.0"></head>
+<link rel="stylesheet" href="style.css?v=8.2.0"></head>
 <body class="bg-slate-900 flex justify-center items-center min-h-screen text-slate-800">
 <div class="relative w-full max-w-[430px] h-[100dvh] md:h-[92vh] md:max-h-[900px] md:rounded-[2.5rem] md:ring-[10px] md:ring-slate-700 bg-white overflow-hidden shadow-2xl">
+  <div id="net" class="hidden" role="status" aria-live="polite"></div>
   <main id="v" class="h-full overflow-y-auto no-sb"></main>
   <nav id="nav" class="hidden absolute bottom-0 inset-x-0 bg-[#eef3fb]/95 backdrop-blur z-30 flex justify-around items-end pb-3 pt-2 text-slate-500 text-[11px]"></nav>
   <button id="aifab" onclick="aiOpen()" aria-label="U2U AI" class="hidden absolute right-4 z-30 w-14 h-14 rounded-full text-white grid place-items-center ai-pulse active:scale-90 transition-transform" style="background:linear-gradient(135deg,#7c3aed,#ec4899);bottom:100px"><i data-lucide="sparkles" class="w-6 h-6"></i></button>
   <div id="modal" onclick="if(event.target===this)X()" class="hidden absolute inset-0 bg-black/50 z-40 items-end"></div>
   <div id="toast" class="absolute top-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50 opacity-0 transition-opacity pointer-events-none whitespace-nowrap"></div>
 </div>
-<script src="app.js?v=8.1.0"></script></body></html>
+<script src="app.js?v=8.2.0"></script></body></html>

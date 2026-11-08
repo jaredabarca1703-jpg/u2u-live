@@ -39,7 +39,7 @@ try{Object.assign(ST,JSON.parse(localStorage.getItem('u2u6')||'{}'));PR=[...ST.m
 const save=()=>{try{ST.mine=PR.filter(p=>p.id>100&&!p.remote);localStorage.setItem('u2u6',JSON.stringify(ST))}catch(e){toast('Memoria llena: no se guardó')}};
 const DK=[6.2,4.5,8.3,.6];PR.forEach(p=>{if(p.s!=ME)p.d=+(DK[SEL[p.s].cp]+((p.id*13)%9)/10).toFixed(1)});
 const src=k=>IM[k]||k,P=id=>PR.find(p=>p.id==id);
-const pic=(p,i=0,c='')=>p.ph[i]?`<img src="${src(p.ph[i])}" onerror="imgErr(this,'${p.e||'📦'}')" class="w-full h-full object-cover ${c}">`:`<div class="w-full h-full grid place-items-center text-5xl bg-blue-50">${p.e||'📦'}</div>`;
+const pic=(p,i=0,c='')=>p.ph[i]?`<img src="${src(p.ph[i])}" alt="${esc(p.t||'Producto')}" onerror="imgErr(this,'${p.e||'📦'}')" class="w-full h-full object-cover ${c}">`:`<div class="w-full h-full grid place-items-center text-5xl bg-blue-50">${p.e||'📦'}</div>`;
 const price=(p,m)=>{m=m||p.mode;return m=='alquiler'?`${sol(p.rent)}<small class="font-semibold text-slate-500">/día</small>`:m=='venta'?sol(p.price):`${sol(p.price)}<small class="font-semibold text-slate-500"> · ${sol(p.rent)}/día</small>`};
 const tag=m=>m=='venta'?['Venta','bg-emerald-100 text-emerald-700']:m=='alquiler'?['Alquiler','bg-sky-100 text-sky-700']:['Venta · Alquiler','bg-violet-100 text-violet-700'];
 const stars=n=>'★'.repeat(Math.round(n))+'☆'.repeat(5-Math.round(n));
@@ -55,10 +55,10 @@ function R(keep){const v=$('#v'),y=v.scrollTop;v.style.animation='none';v.offset
  const b=(s,i,l)=>`<button onclick="root('${s}')" class="flex flex-col items-center gap-0.5 ${S.s==s?'text-brand font-semibold':''}"><i data-lucide="${i}"></i>${l}</button>`;
  const t=(s,i,l)=>`<button onclick="root('${s}')" aria-label="${l}" class="p-2 ${S.s==s?'text-brand':'text-slate-500'}"><i data-lucide="${i}" class="w-7 h-7"></i></button>`;
  n.innerHTML=t('home','home','Inicio')+t('map','compass','Explorar')+`<button onclick="startPub()" class="-mt-7 flex flex-col items-center gap-0.5 w-16"><span class="w-14 h-14 rounded-full bg-[#2f4bd8] text-white grid place-items-center shadow-[0_8px_16px_rgba(47,75,216,.35)] border-4 border-[#eef3fb]"><i data-lucide="plus" class="w-7 h-7"></i></span><span class="text-slate-600 text-[11px]">Publicar</span></button>`+t('msgs','message-circle-more','Mensajes')+t('profile','circle-user-round','Perfil');
- lucide.createIcons();if(S.s=='map')initMap(0);if(S.s=='home')initMap(1);const fb=$('#aifab');fb.classList.toggle('hidden',!['home','map'].includes(S.s));fb.style.bottom=S.s=='map'?'250px':'100px'}
+ fixAlt();lucide.createIcons();if(S.s=='map')initMap(0);if(S.s=='home')initMap(1);const fb=$('#aifab');fb.classList.toggle('hidden',!['home','map'].includes(S.s));fb.style.bottom=S.s=='map'?'250px':'calc(100px + env(safe-area-inset-bottom,0px))'}
 function toast(t){const e=$('#toast');e.textContent=t;e.style.opacity=1;clearTimeout(e.t);e.t=setTimeout(()=>e.style.opacity=0,2200)}
-function M(h){const m=$('#modal');m.innerHTML=h;m.classList.remove('hidden');m.classList.add('flex');lucide.createIcons()}
-function X(){const m=$('#modal');m.classList.add('hidden');m.classList.remove('flex')}
+function M(h){const m=$('#modal');m.innerHTML=h;fixAlt();m.classList.remove('hidden');m.classList.add('flex');lucide.createIcons()}
+function X(){if(window._cfr){const r=_cfr;_cfr=null;r(false)}const m=$('#modal');m.classList.add('hidden');m.classList.remove('flex')}
 const hd=(t,r='')=>`<div class="sticky top-0 bg-white/95 backdrop-blur z-20 flex items-center gap-3 px-4 py-3 border-b"><button onclick="back()"><i data-lucide="arrow-left"></i></button><b class="flex-1 truncate">${t}</b>${r}</div>`;
 function openP(id){const p=P(id);S.vm=p.mode=='alquiler'?'alquiler':'venta';nav('detail',id)}
 function fav(id){const i=ST.fav.indexOf(id);i<0?ST.fav.push(id):ST.fav.splice(i,1);save();R(1)}
@@ -73,7 +73,7 @@ const card=p=>{const t=tag(p.mode);return `<div onclick="openP(${p.id})" class="
  <p class="text-[11px] text-slate-500 truncate">📍 ${CAMP[SEL[p.s].cp]} · ${p.d} km</p></div>`};
 /* =================== PANTALLAS =================== */
 const V={
-login(){const u=LV.pref||{};return `<div class="px-7 pt-14 pb-8"><img src="${IM.logo}" class="w-60 mx-auto">
+login(){const u=LV.pref||{};return `<div class="px-7 pt-14 pb-8"><img src="${IM.logo}" alt="U2U · Compra, vende y alquila entre estudiantes" class="w-60 mx-auto">
  <h1 class="text-[26px] font-extrabold text-navy text-center mt-7 leading-tight">Compra, vende y alquila<br>entre estudiantes</h1>
  <p class="text-slate-500 text-sm text-center mt-2 mb-7">Entra en 5 segundos. Solo escribe tu nombre.</p>
  <input id="un" class="inp text-center text-lg" maxlength="24" placeholder="¿Cómo te llamas?" autocomplete="off" value="${esc(u.name||'')}" onkeydown="event.key=='Enter'&&login()">
@@ -88,7 +88,7 @@ home(){const l=HL();
  <div class="flex justify-between px-4 mt-6">${G.map(g=>`<button onclick="F.cat=F.cat=='${g[0]}'?'Todo':'${g[0]}';R(1)" class="flex flex-col items-center gap-2 w-[80px]"><span class="w-14 h-14 rounded-full grid place-items-center transition ${F.cat==g[0]?'bg-brand text-white shadow-md shadow-brand/30':'bg-blue-50 text-brand'}"><i data-lucide="${g[1]}" class="w-6 h-6"></i></span><span class="text-[10.5px] font-semibold text-center leading-tight text-navy">${g[0]}</span></button>`).join('')}</div>
  <div class="mx-5 mt-6 rounded-3xl p-5 relative overflow-hidden" style="background:linear-gradient(120deg,#dbeafe,#e0f2fe)"><div class="relative z-10 w-[58%]"><h2 class="text-[18px] font-bold leading-tight text-navy">Dale una <span class="text-emerald-500">segunda vida</span> a lo que ya no usas</h2><p class="text-[11px] text-slate-600 mt-2 leading-snug">Compra, vende o alquila materiales y equipos académicos entre estudiantes.</p><button onclick="root('map')" class="mt-3 bg-navy text-white text-xs font-bold px-4 py-2 rounded-full inline-flex items-center gap-1">Explorar ahora <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button></div>
   <div class="absolute right-3 top-3 flex flex-col items-end gap-1 text-[8px] font-semibold text-navy"><span class="bg-white rounded-full px-2 py-0.5 shadow-sm">Más oportunidades</span><span class="bg-white rounded-full px-2 py-0.5 shadow-sm">Menos residuos</span><span class="bg-white rounded-full px-2 py-0.5 shadow-sm">Comunidad estudiantil</span></div>
-  <div class="absolute right-4 bottom-3 w-24 h-14 rounded-md bg-amber-200 grid place-items-center font-extrabold text-navy text-lg shadow-md">U2U</div><img src="${IM.cam}" class="absolute right-14 bottom-[52px] w-11 h-11 rounded-lg object-cover shadow"><img src="${IM.calc}" class="absolute right-4 bottom-[50px] w-8 h-10 rounded-md object-cover shadow"></div>
+  <div class="absolute right-4 bottom-3 w-24 h-14 rounded-md bg-amber-200 grid place-items-center font-extrabold text-navy text-lg shadow-md">U2U</div><img src="${IM.cam}" alt="Cámara Canon de ejemplo" class="absolute right-14 bottom-[52px] w-11 h-11 rounded-lg object-cover shadow"><img src="${IM.calc}" alt="Calculadora Casio de ejemplo" class="absolute right-4 bottom-[50px] w-8 h-10 rounded-md object-cover shadow"></div>
  <div class="grid grid-cols-3 gap-2 mx-5 mt-4">${[['calculator','Calculadora de ahorro','ahorroM()'],['building-2','Sedes UPC',"nav('sedes')"],['shield-check','Punto seguro',"toast('Entregas solo en puntos seguros del campus, con carné UPC')"]].map(a=>`<button onclick="${a[2]}" class="bg-blue-50 rounded-2xl p-3 text-[11px] font-semibold text-navy flex flex-col items-center gap-1.5 active:scale-95 transition"><i data-lucide="${a[0]}" class="w-6 h-6 text-brand"></i>${a[1]}</button>`).join('')}</div>
 <div class="mx-5 mt-5 rounded-2xl p-4 text-white" style="background:linear-gradient(135deg,#6d28d9,#db2777)"><p class="font-bold flex items-center gap-1.5"><i data-lucide="sparkles" class="w-4"></i>U2U AI · tu asistente</p><p class="text-xs opacity-90 mt-1">Cuéntame qué necesitas y busco en los 4 campus de UPC.</p><div class="flex gap-2 overflow-x-auto no-sb mt-3">${['Algo para topografía','Tengo S/ 100','Para filmar un corto'].map(q=>`<button onclick="aiOpen('${q}')" class="shrink-0 bg-white/20 border border-white/40 rounded-full px-3 py-1.5 text-xs font-semibold">${q}</button>`).join('')}</div></div>
  <div class="px-5 mt-7 flex items-start gap-2"><i data-lucide="map-pin" class="w-5 text-brand mt-0.5"></i><div><h3 class="font-bold text-navy">Explora productos cerca de ti</h3><p class="text-sm text-slate-500 leading-snug">Encuentra estudiantes que venden o alquilan en tu zona.</p></div></div>
@@ -139,7 +139,7 @@ profile(){const me=PR.filter(p=>p.s==ME),n=me.length+ST.orders.length,fv=PR.filt
  <div class="mt-4 bg-emerald-50 text-emerald-800 text-xs rounded-xl p-3 flex gap-2"><i data-lucide="shield-check" class="w-5"></i>Alumno verificado: carné UPC, DNI y correo @upc.edu.pe</div>
  <div class="mt-3 rounded-2xl p-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white flex items-center gap-3"><i data-lucide="leaf" class="w-9 h-9"></i><div><p class="font-bold">${n} artículo${n==1?'':'s'} reutilizado${n==1?'':'s'}</p><p class="text-xs opacity-90">≈ ${n*9} kg de CO₂ evitados (estimado)</p></div></div>
  <div class="grid grid-cols-3 mt-4 bg-slate-100 rounded-xl p-1 text-xs font-semibold">${tabs.map(t=>`<button onclick="PT='${t[0]}';R(1)" class="py-2 rounded-lg ${PT==t[0]?'bg-white shadow text-brand':'text-slate-500'}">${t[1]}</button>`).join('')}</div>
- <div class="mt-4">${PT=='pub'?`<div class="grid grid-cols-2 gap-3">${me.map(card).join('')||''}</div>${me.length?'':'<p class="text-center text-slate-400 py-8 text-sm">Aún no publicaste nada.<br>Pulsa + para vender o alquilar.</p>'}`:PT=='fav'?`<div class="grid grid-cols-2 gap-3">${fv.map(card).join('')}</div>${fv.length?'':'<p class="text-center text-slate-400 py-8 text-sm">Guarda productos con ♡</p>'}`:ordersTab()}</div>
+ <div class="mt-4">${PT=='pub'?`<div class="grid grid-cols-2 gap-3">${me.map(card).join('')||''}</div>${me.length?'':empty('package-plus','Aún no publicaste nada','Vende o alquila lo que ya no usas y ayuda a otro estudiante.','Publicar ahora','startPub()')}`:PT=='fav'?`<div class="grid grid-cols-2 gap-3">${fv.map(card).join('')}</div>${fv.length?'':empty('heart','Aún no tienes favoritos','Toca el corazón de un producto para guardarlo y encontrarlo aquí.','Explorar productos',"root('home')")}`:ordersTab()}</div>
  <button onclick="manifM()" class="w-full mt-6 bg-blue-50 text-brand font-semibold py-3 rounded-2xl">💡 Manifiesto U2U · UPC</button>
  <button onclick="logout()" class="w-full mt-3 border border-brand text-brand font-semibold py-3 rounded-2xl">Cerrar sesión</button></div>`},
 co(){const p=P(CO.id),al=CO.mode=='alquiler',d=days(),b=al?p.rent*d:(ST.off[p.id]||p.price),dl=CO.del=='home'?15:0,tot=b+10+dl;
@@ -165,9 +165,9 @@ publish(){const D=PUB,a=D.ai,lb=t=>`<label class="text-xs font-semibold block mt
  return hd('Publicar con IA')+`<div class="p-5 pb-28">
  <div class="rounded-2xl p-4 text-white flex gap-3 items-center" style="background:linear-gradient(135deg,#6d28d9,#db2777)"><i data-lucide="sparkles" class="w-8 h-8 shrink-0"></i><div><p class="font-bold">Vision AI</p><p class="text-xs opacity-90">Elige una foto y la IA completa título, estado, descripción y precio sugerido.</p></div></div>
  <h3 class="font-bold mt-5 mb-2 text-sm">Fotos de ejemplo</h3>
- <div class="flex gap-3 overflow-x-auto no-sb pb-1">${SAMPLES.map((x,i)=>`<button onclick="pickS(${i})" class="shrink-0 w-24 text-center"><span class="block w-24 h-24 rounded-2xl overflow-hidden border-2 ${D.ph.includes(x.ph)?'border-purple-500':'border-transparent'} shadow-sm"><img src="${src(x.ph)}" class="w-full h-full object-cover"></span><span class="text-[11px] font-semibold">${x.l}</span></button>`).join('')}
+ <div class="flex gap-3 overflow-x-auto no-sb pb-1">${SAMPLES.map((x,i)=>`<button onclick="pickS(${i})" class="shrink-0 w-24 text-center"><span class="block w-24 h-24 rounded-2xl overflow-hidden border-2 ${D.ph.includes(x.ph)?'border-purple-500':'border-transparent'} shadow-sm"><img src="${src(x.ph)}" alt="Foto de ejemplo ${i+1}" class="w-full h-full object-cover"></span><span class="text-[11px] font-semibold">${x.l}</span></button>`).join('')}
  <label class="shrink-0 w-24 text-center cursor-pointer"><span class="grid place-items-center w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 text-slate-400"><i data-lucide="camera" class="w-7"></i></span><span class="text-[11px] font-semibold">Mi galería</span><input type="file" accept="image/*" class="hidden" onchange="upF(this)"></label></div>
- ${D.ph.length?`<div class="flex gap-2 mt-3 overflow-x-auto no-sb">${D.ph.map((f,i)=>`<div class="relative w-16 h-16 shrink-0 rounded-xl overflow-hidden"><img src="${src(f)}" class="w-full h-full object-cover"><button onclick="PUB.ph.splice(${i},1);R(1)" aria-label="Quitar" class="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full w-5 h-5 text-xs leading-none">×</button></div>`).join('')}</div>${form}`:'<p class="text-center text-slate-400 text-sm py-10">Elige una foto para empezar ✨</p>'}</div>
+ ${D.ph.length?`<div class="flex gap-2 mt-3 overflow-x-auto no-sb">${D.ph.map((f,i)=>`<div class="relative w-16 h-16 shrink-0 rounded-xl overflow-hidden"><img src="${src(f)}" alt="Foto ${i+1} del producto" class="w-full h-full object-cover"><button onclick="PUB.ph.splice(${i},1);R(1)" aria-label="Quitar" class="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full w-5 h-5 text-xs leading-none">×</button></div>`).join('')}</div>${form}`:'<p class="text-center text-slate-400 text-sm py-10">Elige una foto para empezar ✨</p>'}</div>
  <div class="absolute bottom-0 inset-x-0 bg-white border-t p-3"><button class="btn" onclick="pubGo()">Publicar ahora</button></div>`}};
 /* =================== LÓGICA =================== */
 function login(){const n=(($('#un')||{}).value||'').trim();if(n.length<2)return $('#er').textContent='Escribe tu nombre (mínimo 2 letras).';liveJoin(n);root('home')}
@@ -175,7 +175,7 @@ function dots(){const c=$('#car'),d=$('#dots');if(!c||!d)return;const i=Math.rou
 function sh(){const s=$('#sheet');s.dataset.o=s.dataset.o=='1'?'':'1';s.style.transform=s.dataset.o?'translateY(0)':'translateY(calc(100% - 230px))'}
 /* Home: filtros y grilla (el buscador conserva el foco al escribir) */
 const HL=()=>{const g=G.find(x=>x[0]==F.cat);return PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&(!g||g[2].includes(p.cat))&&(F.car=='Todas'||carOk(p))&&(F.cond=='Todos'||p.cond==F.cond)&&p.status!='sold'&&(F.cp<0||SEL[p.s].cp==F.cp)&&p.t.toLowerCase().includes(F.q.toLowerCase())).sort((a,b)=>F.sort=='d'?a.d-b.d:F.sort=='p'?(a.price||a.rent)-(b.price||b.rent):b.ts-a.ts)};
-const gridH=l=>l.map(card).join('')||`<div class="col-span-2 text-center text-slate-400 py-8"><p>😕 Sin resultados.</p><button onclick="aiOpen(F.q||'Ayúdame a encontrar algo')" class="mt-3 px-4 py-2 rounded-full text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">✨ Preguntar a U2U AI</button></div>`;
+const gridH=l=>(window.io&&LV.me&&LV.ld.p)?skGrid(6):l.map(card).join('')||EMPTYQ()||`<div class="col-span-2 text-center text-slate-400 py-8"><p>😕 Sin resultados.</p><button onclick="aiOpen(F.q||'Ayúdame a encontrar algo')" class="mt-3 px-4 py-2 rounded-full text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">✨ Preguntar a U2U AI</button></div>`;
 function gridR(){const l=HL();$('#grid').innerHTML=gridH(l);$('#cnt').textContent=l.length+' resultado'+(l.length==1?'':'s');lucide.createIcons()}
 function filtM(){M(`<div class="bg-white w-full rounded-t-3xl p-5 pop"><p class="font-bold text-lg mb-3">Filtrar por campus</p><div class="flex flex-wrap gap-2">${[-1,0,1,2,3].map(i=>`<button class="chip ${F.cp==i?'on':''}" onclick="F.cp=${i};X();R(1)">${i<0?'🎓 Todos':CAMP[i]}</button>`).join('')}</div><button class="btn mt-5" onclick="X()">Listo</button></div>`)}
 /* Mapa real de Lima */
@@ -210,7 +210,6 @@ const STS=['Pago confirmado','Coordinando entrega','Entregado','Finalizado'];
 function orderC(o,i){const p=P(o.id);return `<div class="border rounded-2xl p-3 mb-3"><div class="flex gap-3"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1"><p class="font-bold text-sm">${esc(p.t)}</p><p class="text-xs text-slate-500">${o.code} · ${o.d} · ${o.k=='venta'?'Compra':'Alquiler'}</p><b class="text-brand text-sm">${sol(o.tot)}</b></div></div>
  ${o.pin?`<div class="mt-2 text-xs bg-blue-50 rounded-xl p-2">🔐 Código de entrega: <b class="tracking-widest text-sm">${o.pin}</b> · compártelo al recibir, con tu carné UPC</div>`:''}<div class="mt-3 text-xs">${STS.map((s,n)=>`<div class="flex items-center gap-2 py-0.5 ${n<=o.st?'text-brand font-semibold':'text-slate-400'}"><i data-lucide="${n<=o.st?'check-circle-2':'circle'}" class="w-4"></i>${s}</div>`).join('')}</div>
  ${o.st<3?`<button class="chip mt-2" onclick="ST.orders[${i}].st++;save();R(1)">Avanzar estado (demo)</button>`:`<button class="chip mt-2" onclick="rate()">⭐ Calificar vendedor</button>`}</div>`}
-function rate(){M(`<div class="bg-white w-full rounded-t-3xl p-6 text-center pop"><p class="font-bold text-lg">¿Cómo fue tu experiencia?</p><div class="text-4xl text-amber-400 my-3">${[1,2,3,4,5].map(n=>`<button onclick="X();toast('¡Gracias por tu reseña de ${n} ★!')">★</button>`).join('')}</div></div>`)}
 /* Publicar con Vision AI */
 const SAMPLES=[
 {l:'Dron',ph:'dron',a:{t:'Dron DJI Mini 2 SE',cat:'Cámaras',cond:'Semi nuevo',mode:'ambos',price:1850,rent:100,dep:350,tags:['Dron','Cámara 2.7K','Baterías'],desc:'Dron plegable con cámara 2.7K, ideal para topografía y tomas aéreas de proyectos. Incluye 2 baterías, control y estuche.'}},
@@ -223,7 +222,7 @@ function startPub(){PUB={ph:[],t:'',cat:'Cámaras',cond:'Usado',desc:'',mode:'ve
 function pickS(i){const x=SAMPLES[i];if(PUB.ph.includes(x.ph)){PUB.ph=PUB.ph.filter(f=>f!=x.ph);return R(1)}PUB.ph.push(x.ph);aiScan(x.ph,x.a)}
 function upF(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas'),k=Math.min(1,600/i.width);c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);const d=c.toDataURL('image/jpeg',.8);PUB.ph.push(d);aiScan(d,SAMPLES[Math.floor(Math.random()*SAMPLES.length)].a)};i.src=e.target.result};r.readAsDataURL(f)}
 function aiScan(img,a){const st=['Detectando objeto…','Evaluando estado visual…','Comparando con publicaciones similares…','Calculando precio sugerido…','Redactando descripción…'];
- M(`<div class="bg-white w-full rounded-t-3xl p-6 pop text-center"><div class="relative w-44 h-44 mx-auto rounded-2xl overflow-hidden shadow-lg"><img src="${src(img)}" class="w-full h-full object-cover"><div class="scanl"></div></div><p class="font-bold text-lg mt-4 flex items-center justify-center gap-2"><i data-lucide="sparkles" class="w-5 text-purple-600"></i>Vision AI analizando</p><div id="ais" class="text-left text-sm mt-3 space-y-1.5 min-h-[120px]"></div></div>`);
+ M(`<div class="bg-white w-full rounded-t-3xl p-6 pop text-center"><div class="relative w-44 h-44 mx-auto rounded-2xl overflow-hidden shadow-lg"><img src="${src(img)}" alt="Foto analizada por la IA" class="w-full h-full object-cover"><div class="scanl"></div></div><p class="font-bold text-lg mt-4 flex items-center justify-center gap-2"><i data-lucide="sparkles" class="w-5 text-purple-600"></i>Vision AI analizando</p><div id="ais" class="text-left text-sm mt-3 space-y-1.5 min-h-[120px]"></div></div>`);
  st.forEach((t,i)=>setTimeout(()=>{const e=$('#ais');if(!e)return;e.innerHTML=st.slice(0,i+1).map((x,n)=>`<p class="flex items-center gap-2 ${n<i?'text-slate-400':'text-slate-800 font-semibold'}"><i data-lucide="${n<i?'check-circle-2':'loader'}" class="w-4 ${n<i?'text-emerald-500':'text-purple-600 animate-spin'}"></i>${x}</p>`).join('');lucide.createIcons()},i*650));
  setTimeout(()=>{Object.assign(PUB,{t:a.t,cat:a.cat,cond:a.cond,mode:a.mode,price:a.price||'',rent:a.rent||'',dep:a.dep||'',desc:a.desc,ai:a});X();R(1);toast('✨ Vision AI completó tu publicación')},st.length*650+300)}
 function pubGo(){const D=PUB;if(!D.ph.length)return toast('Elige al menos una foto');if(D.t.trim().length<3)return toast('Escribe un título');
@@ -283,7 +282,7 @@ function ahorroM(){M(`<div class="bg-white w-full rounded-t-3xl p-6 pop"><p clas
 function manifM(){M(`<div class="bg-white w-full rounded-t-3xl p-6 pop max-h-[85%] overflow-y-auto no-sb"><p class="font-bold text-lg">💡 Manifiesto U2U · UPC</p><div class="text-sm text-slate-700 leading-relaxed space-y-2 mt-3"><p>U2U es una plataforma digital peruana pensada para reducir el costo de los materiales universitarios, enfocada en la <b>Universidad Peruana de Ciencias Aplicadas</b> y sus <b>4 sedes</b>: Monterrico, San Isidro, Villa y San Miguel.</p><p><b>Ciclos avanzados:</b> rentabilizan libros, calculadoras, cámaras y herramientas que ya no usan.</p><p><b>Ciclos iniciales:</b> compran o alquilan equipos a precios justos sin salir del campus.</p><p>Así fomentamos el ahorro estudiantil y una comunidad basada en el consumo responsable y la reutilización.</p></div><button class="btn mt-4" onclick="X()">Cerrar</button></div>`)}
 /* ===================== V8: TIEMPO REAL (Socket.io) ===================== */
 /* Si /socket.io/socket.io.js no carga (archivo abierto sin servidor), la app sigue en modo local simulado. */
-const LV={me:null,pref:null,idc:null,convs:{},orders:{},pres:{total:0,uids:[]},chips:[]};
+const LV={ld:{p:0,h:0,o:0},me:null,pref:null,idc:null,convs:{},orders:{},pres:{total:0,uids:[]},chips:[]};
 let sock=null,MT='chats';
 try{LV.pref=JSON.parse(localStorage.getItem('u2u7')||'null')}catch(e){}
 PR.forEach(p=>{if(p.cond=='Como nuevo')p.cond='Semi nuevo'});
@@ -294,20 +293,20 @@ const rnd=n=>{const a=new Uint8Array(n);try{crypto.getRandomValues(a)}catch(e){f
 function myId(fresh){if(fresh)LV.idc=null;if(LV.idc)return LV.idc;try{if(!fresh)LV.idc=JSON.parse(localStorage.getItem('u2uid')||'null')}catch(e){}
  if(!LV.idc||!LV.idc.uid||!LV.idc.secret){LV.idc={uid:'u_'+rnd(5),secret:rnd(16)};try{localStorage.setItem('u2uid',JSON.stringify(LV.idc))}catch(e){}}return LV.idc}
 const myUid=()=>myId().uid,joinData=()=>({uid:LV.me.uid,secret:myId().secret,name:LV.me.name});
-function liveJoin(name){SEL[ME].n=name;LV.me={uid:myUid(),name};LV.pref={name};try{localStorage.setItem('u2u7',JSON.stringify(LV.pref))}catch(e){}if(sock&&sock.connected)sock.emit('join',joinData())}
+function liveJoin(name){if(window.io){LV.ld={p:1,h:1,o:1};clearTimeout(LV.ldT);LV.ldT=setTimeout(()=>{LV.ld={p:0,h:0,o:0};if(['home','msgs','profile'].includes(S.s))R(1)},6000)}SEL[ME].n=name;LV.me={uid:myUid(),name};LV.pref={name};try{localStorage.setItem('u2u7',JSON.stringify(LV.pref))}catch(e){}if(sock&&sock.connected)sock.emit('join',joinData())}
 function logout(){if(sock&&sock.connected)sock.emit('leave');LV.me=null;LV.convs={};LV.orders={};root('login')}
 
 function liveStart(){if(!window.io)return;
  sock=io();
- sock.on('connect',()=>{if(LV.me)sock.emit('join',joinData());presUI()});
+ sock.on('connect',()=>{netUI(0);if(LV.me)sock.emit('join',joinData());presUI()});
  sock.on('denied',()=>{if(!LV.me)return;myId(true);LV.me.uid=myUid();sock.emit('join',joinData())});
- sock.on('disconnect',presUI);
+ sock.on('disconnect',()=>{netUI(1);presUI()});sock.on('connect_error',()=>netUI(1));sock.io.on('reconnect_attempt',()=>netUI(1));
  sock.on('presence',p=>{LV.pres=p;presUI()});
- sock.on('history',l=>{const old=LV.convs;LV.convs={};l.forEach(c=>{c.un=(old[c.key]&&old[c.key].un)||0;LV.convs[c.key]=c});if(S.s=='msgs')R(1);if(S.s=='lchat')lchatR(S.a);navDot()});
- sock.on('orders',l=>{LV.orders={};l.forEach(o=>LV.orders[o.id]=o);if(S.s=='msgs'||S.s=='profile')R(1);navDot()});
+ sock.on('history',l=>{LV.ld.h=0;const old=LV.convs;LV.convs={};l.forEach(c=>{c.un=(old[c.key]&&old[c.key].un)||0;LV.convs[c.key]=c});if(S.s=='msgs')R(1);if(S.s=='lchat')lchatR(S.a);navDot()});
+ sock.on('orders',l=>{LV.ld.o=0;LV.orders={};l.forEach(o=>LV.orders[o.id]=o);if(S.s=='msgs'||S.s=='profile')R(1);navDot()});
  sock.on('order',onOrder);
  sock.on('msg',onMsg);
- sock.on('products',onProducts);
+ sock.on('products',l=>{LV.ld.p=0;onProducts(l);if(S.s=='home')gridR()});
  sock.on('new-product',onNewProduct);
  sock.on('product-status',d=>{const p=P(d.id);if(!p)return;p.status=d.status;refreshCatalog();if(S.s=='detail'&&S.a==d.id)R(1)})}
 
@@ -381,7 +380,7 @@ function confirmOrder(id){const i=document.querySelector(`.pin-in[data-o="${id}"
  if(pin.length!=6)return toast('Ingresa los 6 dígitos del código');
  if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
  sock.emit('order:confirm',{id,pin},r=>{if(r&&r.error){toast(r.error);if(i)i.value=''}})}
-function cancelOrder(id){if(!confirm('¿Cancelar este pedido? Se liberará el producto.'))return;
+async function cancelOrder(id){if(!await askConfirm({title:'¿Cancelar este pedido?',msg:'Se liberará el producto para otros estudiantes.',ok:'Sí, cancelar pedido',no:'Volver',danger:1,icon:'trash-2'}))return;if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
  sock.emit('order:cancel',{id},r=>{if(r&&r.error)toast(r.error)})}
 function orderChat(id){const o=LV.orders[id];if(!o)return;const k=o.pid+'|'+o.buyerId;
  if(o.buyerId!=LV.me.uid&&!LV.convs[k])return toast('El comprador aún no te escribió por chat');nav('lchat',k)}
@@ -394,9 +393,9 @@ function ordCard(o){const me=LV.me.uid,buyer=o.buyerId==me,sb=STB[o.status],pend
  ${pend&&!buyer?`<div class="mt-3 rounded-2xl p-3 bg-blue-50"><p class="text-xs font-semibold text-navy">Al entregar el producto, pídele a ${esc(o.buyerName)} su código de 6 dígitos:</p><div class="flex gap-2 mt-2 items-center"><input data-o="${o.id}" class="pin-in flex-1 min-w-0 text-center text-xl font-bold tracking-[.3em] border rounded-xl py-2 outline-none" inputmode="numeric" maxlength="6" placeholder="••••••" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)" ${o.locked?'disabled':''}><button class="bg-brand text-white font-bold rounded-xl px-4 py-3 text-sm" onclick="confirmOrder('${o.id}')">Confirmar entrega</button></div>${o.locked?'<p class="text-[11px] text-red-500 mt-1">Bloqueado por intentos fallidos. Inténtalo en unos minutos.</p>':''}</div>`:''}
  ${o.status=='completed'?`<p class="mt-2 text-xs text-emerald-700 bg-emerald-50 rounded-xl p-2">✅ ${buyer?'Recibiste el producto':'Entregaste el producto'} · ${new Date(o.doneAt).toLocaleString('es-PE',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>`:''}
  <div class="flex gap-2 mt-3 flex-wrap"><button class="chip" onclick="orderChat('${o.id}')">💬 Chat</button>${pend?`<button class="chip" onclick="cancelOrder('${o.id}')">Cancelar pedido</button>`:''}${o.status=='completed'&&buyer?'<button class="chip" onclick="rate()">⭐ Calificar</button>':''}</div></div>`}
-function liveOrdersH(){const l=Object.values(LV.orders).sort((a,b)=>b.ts-a.ts);
- return l.map(ordCard).join('')||'<p class="text-center text-slate-400 py-10 text-sm">Aún no tienes pedidos.<br>Cuando compres, alquiles o te compren algo, aparecerá aquí con su código de entrega.</p>'}
-const ordersTab=()=>(window.io&&LV.me)?liveOrdersH():(ST.orders.map((o,i)=>orderC(o,i)).join('')||'<p class="text-center text-slate-400 py-8 text-sm">Aún no tienes pedidos.</p>');
+function liveOrdersH(){if(LV.ld.o)return skRows(3);const l=Object.values(LV.orders).sort((a,b)=>b.ts-a.ts);
+ return l.map(ordCard).join('')||empty('package','Aún no tienes pedidos','Cuando compres, alquiles o te compren algo, aparecerá aquí con su código de entrega.','Explorar productos',"root('home')")}
+const ordersTab=()=>(window.io&&LV.me)?liveOrdersH():(ST.orders.map((o,i)=>orderC(o,i)).join('')||empty('package','Aún no tienes pedidos','Cuando compres, alquiles o te compren algo, aparecerá aquí con su código de entrega.','Explorar productos',"root('home')"));
 
 /* ---------- Bandeja: chats + pedidos ---------- */
 function liveMsgs(){const l=Object.values(LV.convs).filter(c=>c.msgs.length).sort((a,b)=>b.msgs[b.msgs.length-1].ts-a.msgs[a.msgs.length-1].ts),
@@ -405,7 +404,7 @@ function liveMsgs(){const l=Object.values(LV.convs).filter(c=>c.msgs.length).sor
  tab=(k,t,n)=>`<button onclick="MT='${k}';R(1)" class="py-2 rounded-lg ${MT==k?'bg-white shadow text-brand':'text-slate-500'}">${t}${bd(n)}</button>`;
  const chats=l.map(c=>{const p=P(c.pid),m=c.msgs[c.msgs.length-1],mine=m.uid==LV.me.uid;if(!p)return '';
   return `<div onclick="nav('lchat','${c.key}')" class="flex gap-3 items-center py-3 border-b cursor-pointer"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm">${c.buyerId!=LV.me.uid?esc(c.buyerName):esc(SEL[p.s].n)}</p><p class="text-xs text-slate-500 truncate">${esc(p.t)}</p><p class="text-xs truncate ${mine?'text-slate-400':'text-slate-700 font-semibold'}">${mine?'Tú: ':''}${esc(m.text)}</p></div><div class="flex flex-col items-end gap-1"><span class="text-[10px] text-slate-400">${tm(m.ts)}</span>${c.un?`<span class="min-w-[18px] h-[18px] px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center">${c.un}</span>`:''}</div></div>`}).join('')
-  ||'<p class="text-center text-slate-400 py-16 text-sm">Aún no tienes conversaciones.<br>Abre una publicación de otro estudiante y toca el chat para escribirle en privado.</p>';
+  ||(LV.ld.h?skRows(4):empty('message-circle','Aún no tienes conversaciones','Abre una publicación de otro estudiante y toca el chat para escribirle en privado.','Explorar productos',"root('home')"));
  return `<div class="p-5 pb-28"><h1 class="text-2xl font-bold mb-3">Mensajes</h1><div class="grid grid-cols-2 bg-slate-100 rounded-xl p-1 text-sm font-semibold mb-4">${tab('chats','Chats',nc)}${tab('orders','Pedidos',np)}</div>${MT=='orders'?liveOrdersH():chats}</div>`}
 const _vMsgs=V.msgs;V.msgs=a=>(window.io&&LV.me)?liveMsgs():_vMsgs(a);
 
@@ -454,5 +453,26 @@ const _R=R;R=function(keep){const pv={};document.querySelectorAll('.pin-in').for
  _R(keep);document.querySelectorAll('.pin-in').forEach(i=>{if(pv[i.dataset.o])i.value=pv[i.dataset.o]});
  if(S.s=='lchat')lchatR(S.a);navDot();presUI()};
 liveStart();
+
+/* ===== v8.2.0 ===== */
+function fixAlt(){document.querySelectorAll('img:not([alt])').forEach(i=>i.setAttribute('alt',''))}
+const empty=(ic,ti,m,b,a)=>`<div class="col-span-2 flex flex-col items-center text-center py-10 px-6"><div class="w-16 h-16 rounded-full bg-blue-50 text-brand grid place-items-center"><i data-lucide="${ic}" class="w-8 h-8"></i></div><p class="font-bold text-navy mt-4">${ti}</p><p class="text-sm text-slate-500 mt-1">${m}</p>${b?`<button onclick="${a}" class="btn mt-5 !w-auto px-6 !py-2.5 text-sm">${b}</button>`:''}</div>`;
+const EMPTYQ=()=>{const h=filtN()||F.q;return empty('search-x','Sin resultados',h?'No encontramos nada con esa búsqueda o esos filtros. Quita alguno o pregunta a la IA.':'Todavía no hay publicaciones. Sé el primero en publicar.',h?'Limpiar filtros':'Publicar ahora',h?"F.q='';clrF()":'startPub()')+`<div class="col-span-2 text-center -mt-6 mb-4"><button onclick="aiOpen(F.q||'Ayúdame a encontrar algo')" class="text-sm font-semibold text-violet-600">✨ Preguntar a U2U AI</button></div>`};
+const skGrid=n=>Array.from({length:n},()=>`<div aria-hidden="true"><div class="sk aspect-square rounded-2xl"></div><div class="sk h-4 w-2/3 mt-2"></div><div class="sk h-3 w-full mt-1.5"></div><div class="sk h-3 w-1/2 mt-1.5"></div></div>`).join('');
+const skRows=n=>Array.from({length:n},()=>`<div aria-hidden="true" class="flex gap-3 items-center py-3 border-b"><div class="sk w-14 h-14 rounded-xl shrink-0"></div><div class="flex-1"><div class="sk h-3.5 w-1/2"></div><div class="sk h-3 w-3/4 mt-2"></div></div></div>`).join('');
+/* modal de confirmación propio (reemplaza confirm()) */
+function askConfirm(o){return new Promise(res=>{window._cfr=res;M(`<div class="bg-white w-full rounded-t-3xl p-6 pop text-center" role="alertdialog" aria-modal="true" aria-labelledby="cft"><div class="w-14 h-14 rounded-full ${o.danger?'bg-red-50 text-red-500':'bg-blue-50 text-brand'} grid place-items-center mx-auto"><i data-lucide="${o.icon||'help-circle'}" class="w-7 h-7"></i></div><p id="cft" class="font-bold text-lg mt-3 text-navy">${o.title}</p><p class="text-sm text-slate-500 mt-1">${o.msg||''}</p><button class="btn mt-5 ${o.danger?'!bg-red-500':''}" onclick="cfAns(true)">${o.ok||'Aceptar'}</button><button class="w-full py-3 text-slate-500 font-semibold" onclick="cfAns(false)">${o.no||'Cancelar'}</button></div>`)})}
+function cfAns(v){const r=window._cfr;window._cfr=null;X();if(r)r(v)}
+document.addEventListener('keydown',e=>{if(e.key=='Escape'&&!$('#modal').classList.contains('hidden'))X()});
+/* calificación con estrellas */
+const RTX=['','Malo','Regular','Bueno','Muy bueno','Excelente'];let RV=0;
+function rate(){RV=0;M(`<div class="bg-white w-full rounded-t-3xl p-6 text-center pop" role="dialog" aria-modal="true" aria-labelledby="rtt"><p id="rtt" class="font-bold text-lg text-navy">¿Cómo fue tu experiencia?</p><div id="rs" role="radiogroup" aria-label="Calificación" class="flex justify-center gap-1 my-3">${[1,2,3,4,5].map(n=>`<button role="radio" aria-checked="false" aria-label="${n} de 5" data-n="${n}" onclick="rateSet(${n})" class="w-12 h-12 text-4xl leading-none text-slate-300 transition active:scale-90">★</button>`).join('')}</div><p id="rt" aria-live="polite" class="text-sm text-slate-500 h-5">Toca una estrella</p><button id="rsend" class="btn mt-4" disabled onclick="rateSend()">Enviar calificación</button><button class="w-full py-3 text-slate-500" onclick="X()">Ahora no</button></div>`)}
+function rateSet(n){RV=n;document.querySelectorAll('#rs button').forEach(b=>{const k=+b.dataset.n,on=k<=n;b.classList.toggle('text-amber-400',on);b.classList.toggle('text-slate-300',!on);b.classList.toggle('scale-110',on);b.setAttribute('aria-checked',k==n)});const e=$('#rt');e.textContent=n+' de 5 · '+RTX[n];e.className='text-sm font-semibold text-amber-500 h-5';$('#rsend').disabled=false}
+function rateSend(){if(!RV)return;const n=RV;X();toast('¡Gracias por tu reseña de '+n+' ★!')}
+/* banner de reconexión */
+function netUI(down){const e=$('#net');if(!e)return;clearTimeout(e.t);
+ if(down){e.dataset.d='1';e.className='absolute top-0 inset-x-0 z-[60] text-center text-xs font-semibold py-1.5 bg-amber-500 text-white';e.innerHTML='<span class="inline-block w-3 h-3 mr-1.5 align-[-2px] border-2 border-white border-t-transparent rounded-full animate-spin"></span>Reconectando…'}
+ else if(e.dataset.d=='1'){e.dataset.d='';e.className='absolute top-0 inset-x-0 z-[60] text-center text-xs font-semibold py-1.5 bg-emerald-500 text-white';e.textContent='✓ Conexión restablecida';e.t=setTimeout(()=>e.className='hidden',1800)}}
+window.addEventListener('offline',()=>netUI(1));window.addEventListener('online',()=>{if(!sock||sock.connected)netUI(0)});
 
 R();
