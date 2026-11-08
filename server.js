@@ -11,6 +11,22 @@
  *   confirma la transacción.
  * - Todo vive en memoria (se borra al reiniciar el servidor): ideal para demo.
  */
+/* Variables de entorno: en Render se definen en el panel (Environment); en tu computadora, en un archivo .env
+ * (ignorado por git). Lo que ya venga definido en el entorno tiene prioridad sobre el .env. Sin dependencias nuevas. */
+(function loadEnv() {
+  try {
+    const f = require('path').join(__dirname, '.env');
+    if (!require('fs').existsSync(f)) return;
+    require('fs').readFileSync(f, 'utf8').split(/\r?\n/).forEach((l) => {
+      const m = /^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/.exec(l);
+      if (!m || l.trim().startsWith('#')) return;
+      let v = m[2];
+      if (/^(['"]).*\1$/.test(v)) v = v.slice(1, -1);
+      if (process.env[m[1]] === undefined) process.env[m[1]] = v;
+    });
+  } catch (e) { console.warn('[env] no se pudo leer .env:', e.message); }
+})();
+
 const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
@@ -113,6 +129,7 @@ function view(o, uid) {
   delete v.pin; delete v.fails; delete v.lockedUntil;
   if (uid === o.buyerId && o.status === 'pending') v.pin = o.pin;
   v.locked = !!(o.lockedUntil && o.lockedUntil > Date.now());
+  v.reviewed = community.reviewed(o.id); // ya tiene reseña (una por pedido)
   return v;
 }
 function pushOrder(o) {
@@ -120,8 +137,28 @@ function pushOrder(o) {
   io.to('u:' + o.ownerId).emit('order', view(o, o.ownerId));
 }
 
+/* ---------- Moderación: eliminar publicaciones y cancelar pedidos pendientes ---------- */
+function cancelPending(match) {
+  for (const o of orders.values()) {
+    if (o.status !== 'pending' || !match(o)) continue;
+    o.status = 'cancelled'; o.doneAt = Date.now(); o.cancelledBy = 'admin';
+    const p = products.get(o.pid);
+    if (p && o.mode === 'compra' && p.status === 'reserved') setStatus(p, 'available');
+    pushOrder(o);
+  }
+}
+function removeProduct(pid) {
+  cancelPending((o) => o.pid === pid);
+  if (!products.has(pid)) return false;
+  products.delete(pid);
+  io.emit('product-removed', { id: pid }); // desaparece al instante para todos
+  return true;
+}
+const community = require('./community')({ io, accounts, products, orders, removeProduct, cancelPending, pushOrder });
+
 io.on('connection', (socket) => {
   socket.data = {};
+  community.attach(socket); // reportes, panel admin y reseñas
   io.emit('presence', presence()); // avisa a todos que alguien abrió el enlace
 
   /* Entrada sin fricción: solo nombre. La identidad (uid + secreto) la genera el dispositivo. */
@@ -129,17 +166,22 @@ io.on('connection', (socket) => {
     d = d || {};
     const uid = String(d.uid || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24);
     const secret = String(d.secret || '').slice(0, 64);
-    const acc = accounts.accountFor(uid, secret); // solo cuentas registradas, con el secreto que emitió el servidor
-    if (!acc) return socket.emit('denied');
+    const chk = accounts.check(uid, secret); // solo cuentas registradas, con el secreto que emitió el servidor
+    if (!chk) return socket.emit('denied');
+    if (chk.blocked) return socket.emit('blocked'); // cuenta bloqueada por moderación
+    const acc = chk.u;
     const name = acc.name; // el nombre sale de la cuenta, no del cliente
 
     if (socket.data.uid) socket.leave('u:' + socket.data.uid);
-    socket.data = { uid, name, hits: [], pubs: [], ords: [] };
+    socket.data = { uid, name, admin: acc.admin === true, hits: [], pubs: [], ords: [] }; // admin sale de la cuenta (servidor), nunca del cliente
+    socket.leave('admin');
     socket.join('u:' + uid);
+    if (socket.data.admin) socket.join('admin');
 
     // Todo lo privado: solo MIS conversaciones y MIS pedidos (como comprador o como dueño)
     socket.emit('history', [...convs.values()].filter((c) => c.buyerId === uid || ownerOf(c.pid) === uid));
     socket.emit('orders', [...orders.values()].filter((o) => o.buyerId === uid || o.ownerId === uid).map((o) => view(o, uid)));
+    community.onJoin(socket); // publicaciones eliminadas, mis reportes, promedios y (si es admin) el panel
     socket.emit('products', [...products.values()]); // catálogo compartido (público)
     io.emit('presence', presence());
   });
@@ -150,6 +192,7 @@ io.on('connection', (socket) => {
     const me = socket.data;
     if (!me || !me.uid) return reply({ error: 'Primero entra con tu nombre' });
 
+    if (me.admin) return reply({ error: 'El administrador no puede publicar' });
     const now = Date.now();
     me.pubs = (me.pubs || []).filter((t) => now - t < 60000);
     if (me.pubs.length >= 5) return reply({ error: 'Demasiadas publicaciones seguidas, espera un minuto' });
@@ -158,6 +201,7 @@ io.on('connection', (socket) => {
     if (r.error) return reply({ error: r.error });
     const p = r.p;
 
+    if (p.id && community.isRemoved(p.id)) return reply({ error: 'Esta publicación fue eliminada por moderación', removed: true });
     if (p.id) {
       const ow = owners.get(p.id);
       if (ow && ow !== me.uid) return reply({ error: 'Publicación duplicada' }); // nadie puede apropiarse de un id
@@ -192,6 +236,7 @@ io.on('connection', (socket) => {
     const pid = parseInt(d.pid, 10);
     const owner = ownerOf(pid);
     if (!pid || !owner) return reply({ error: 'Producto de ejemplo: chatea con publicaciones de otros estudiantes' });
+    if (community.isRemoved(pid)) return reply({ error: 'Esta publicación fue eliminada' });
 
     let buyerId, from;
     if (owner === me.uid) {
@@ -233,6 +278,7 @@ io.on('connection', (socket) => {
     if (!me || !me.uid) return reply({ error: 'Primero entra con tu nombre' });
     d = d || {};
 
+    if (me.admin) return reply({ error: 'El administrador no puede comprar ni alquilar' });
     const now = Date.now();
     me.ords = (me.ords || []).filter((t) => now - t < 60000);
     if (me.ords.length >= 5) return reply({ error: 'Demasiados pedidos seguidos, espera un minuto' });
@@ -330,6 +376,7 @@ io.on('connection', (socket) => {
 
   socket.on('leave', () => {
     if (socket.data.uid) socket.leave('u:' + socket.data.uid);
+    socket.leave('admin');
     socket.data = {};
     io.emit('presence', presence());
   });
@@ -338,5 +385,5 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-['SIGTERM', 'SIGINT'].forEach((s) => process.on(s, () => { accounts.flush(); process.exit(0); })); // guarda cuentas al apagar
+['SIGTERM', 'SIGINT'].forEach((s) => process.on(s, () => { accounts.flush(); community.flush(); process.exit(0); })); // guarda cuentas al apagar
 server.listen(PORT, () => console.log('U2U en vivo escuchando en el puerto ' + PORT));

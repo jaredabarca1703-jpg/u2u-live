@@ -95,13 +95,14 @@ function issue(u) {
   saveSoon();
   return token;
 }
-const pub = (u) => ({ uid: u.uid, secret: u.secret, name: u.name, username: u.username });
+const pub = (u) => ({ uid: u.uid, secret: u.secret, name: u.name, username: u.username, admin: !!u.admin }); // admin: solo informativo para la interfaz; el servidor lo vuelve a comprobar en cada acción
 function fromReq(req) {
   const m = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization || '');
   if (!m) return null;
   const h = sha(m[1]), u = bySess.get(h), now = Date.now();
   const s = u && (u.sessions || []).find((x) => x.h === h);
   if (!s || s.exp <= now) { bySess.delete(h); return null; }
+  if (u.blocked) return null; // cuenta bloqueada: la sesión ya no sirve
   return { u, s, h };
 }
 
@@ -110,8 +111,29 @@ const USER_RE = /^[a-z0-9_.]{3,20}$/i, EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.
 const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, n);
 const ip = (req) => req.ip || (req.socket && req.socket.remoteAddress) || 'x';
 
+/* ---------- cuenta de administrador (SOLO por variables de entorno) ----------
+ * ADMIN_USER y ADMIN_PASS se leen únicamente del entorno del servidor: nunca están en el código ni en el HTML.
+ * La cuenta vive solo en memoria (no se escribe en users.json) y pasa por el mismo login con scrypt y límite de intentos.
+ * El rol se asigna aquí, en el servidor; el cliente no puede pedirlo ni declararlo.
+ */
+function setupAdmin() {
+  const user = String(process.env.ADMIN_USER || '').trim(), pass = String(process.env.ADMIN_PASS || '');
+  if (!user && !pass) return console.log('[auth] Admin desactivado: define ADMIN_USER y ADMIN_PASS para habilitarlo.');
+  if (!USER_RE.test(user)) return console.error('[auth] Admin desactivado: ADMIN_USER debe tener 3 a 20 caracteres (letras, números, _ y .).');
+  if (pass.length < 10 || pass.length > 128) return console.error('[auth] Admin desactivado: ADMIN_PASS debe tener entre 10 y 128 caracteres.');
+  if (byName.has(user.toLowerCase())) return console.error('[auth] Admin desactivado: ya existe una cuenta registrada con el usuario "' + user + '". Elige otro ADMIN_USER.');
+  const salt = crypto.randomBytes(16), k = crypto.scryptSync(pass, salt, KEYLEN, SCRYPT);
+  index({
+    uid: 'u_admin', secret: crypto.createHmac('sha256', pass).update('u2u-admin-secret-v1').digest('hex').slice(0, 48),
+    username: user, email: 'admin@u2u.invalid', name: 'Administrador', admin: true, createdAt: Date.now(), sessions: [],
+    hash: ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString('base64'), k.toString('base64')].join('$'),
+  });
+  console.log('[auth] Admin habilitado para el usuario "' + user + '".');
+}
+
 function mount(app) {
   load();
+  setupAdmin();
   const api = express.Router();
   api.use(express.json({ limit: '8kb' }));
   api.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
@@ -162,6 +184,7 @@ function mount(app) {
         return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' }); // mismo mensaje exista o no el usuario
       }
       hits.delete('acc:' + id);
+      if (u.blocked) return res.status(403).json({ error: 'Tu cuenta fue bloqueada por incumplir las normas de la comunidad.', blocked: true });
       res.json({ token: issue(u), user: pub(u) });
     } catch (e) { console.error('[auth] login', e.message); res.status(500).json({ error: 'Error del servidor. Intenta de nuevo.' }); }
   });
@@ -187,11 +210,28 @@ function mount(app) {
 }
 
 /* Socket.io: solo entran cuentas registradas, con su uid + secreto emitidos por el servidor */
-function accountFor(uid, secret) {
+function check(uid, secret) {
   const u = byUid.get(String(uid || ''));
   if (!u) return null;
   const a = Buffer.from(String(secret || '')), b = Buffer.from(u.secret);
-  return a.length === b.length && crypto.timingSafeEqual(a, b) ? u : null;
+  if (!(a.length === b.length && crypto.timingSafeEqual(a, b))) return null;
+  return { u, blocked: !!u.blocked };
 }
+function accountFor(uid, secret) { const c = check(uid, secret); return c && !c.blocked ? c.u : null; }
 
-module.exports = { mount, accountFor, flush };
+/* ---------- moderación: bloqueo de cuentas (se guarda en users.json) ---------- */
+const getByUid = (uid) => byUid.get(String(uid || '')) || null;
+function setBlocked(uid, flag) {
+  const u = getByUid(uid);
+  if (!u || u.admin) return null; // la cuenta admin no se puede bloquear
+  if (flag) {
+    u.blocked = true; u.blockedAt = Date.now();
+    (u.sessions || []).forEach((s) => bySess.delete(s.h)); // se revocan todas sus sesiones
+    u.sessions = [];
+  } else { delete u.blocked; delete u.blockedAt; }
+  saveSoon();
+  return u;
+}
+const listBlocked = () => db.users.filter((u) => u.blocked).map((u) => ({ uid: u.uid, name: u.name, username: u.username, blockedAt: u.blockedAt || 0 }));
+
+module.exports = { mount, accountFor, check, getByUid, setBlocked, listBlocked, flush };
