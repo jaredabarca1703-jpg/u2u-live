@@ -1,4 +1,3 @@
-
 /* U2U · servidor de tiempo real (Express + Socket.io)
  * - Sirve la app desde /public
  * - Cuentas con usuario/correo + contraseña (auth.js, crypto.scrypt) y sesión por token.
