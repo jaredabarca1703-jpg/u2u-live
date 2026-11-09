@@ -1,0 +1,454 @@
+[
+ {
+  "id": 1,
+  "t": "Cámara Canon EOS R50",
+  "ph": [
+   "cam",
+   "cam2"
+  ],
+  "cat": "Cámaras",
+  "mode": "ambos",
+  "price": 1800,
+  "rent": 60,
+  "dep": 200,
+  "cond": "Semi nuevo",
+  "cp": 0,
+  "car": [
+   "Comunicaciones"
+  ],
+  "desc": "Cámara mirrorless en excelente estado. Incluye batería, cargador y correa original. Ideal para proyectos de fotografía y audiovisual."
+ },
+ {
+  "id": 2,
+  "t": "MacBook Air M2",
+  "ph": [
+   "mac"
+  ],
+  "cat": "Laptops",
+  "mode": "venta",
+  "price": 2500,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Usado",
+  "cp": 1,
+  "car": [
+   "Sistemas",
+   "Arquitectura",
+   "Comunicaciones",
+   "Negocios"
+  ],
+  "desc": "Equipo en buen estado, batería sana, con cargador original. Perfecto para diseño y programación."
+ },
+ {
+  "id": 3,
+  "t": "Trípode profesional Weifeng",
+  "ph": [
+   "tri"
+  ],
+  "cat": "Cámaras",
+  "mode": "alquiler",
+  "price": 0,
+  "rent": 30,
+  "dep": 50,
+  "cond": "Usado",
+  "cp": 2,
+  "car": [
+   "Comunicaciones"
+  ],
+  "desc": "Trípode ligero y estable con rótula fluida y bolso de transporte."
+ },
+ {
+  "id": 4,
+  "t": "Calculadora Casio ClassWiz fx-82LA",
+  "ph": [
+   "calc"
+  ],
+  "cat": "Calculadoras",
+  "mode": "ambos",
+  "price": 55,
+  "rent": 10,
+  "dep": 30,
+  "cond": "Usado",
+  "cp": 3,
+  "car": [
+   "Ing. Civil",
+   "Sistemas",
+   "Negocios"
+  ],
+  "desc": "Calculadora científica permitida en exámenes. Pantalla en perfecto estado."
+ },
+ {
+  "id": 5,
+  "t": "Máquina de coser Brother GS2700",
+  "ph": [
+   "sew"
+  ],
+  "cat": "Herramientas",
+  "mode": "alquiler",
+  "price": 0,
+  "rent": 70,
+  "dep": 150,
+  "cond": "Semi nuevo",
+  "cp": 1,
+  "car": [
+   "Diseño de Moda"
+  ],
+  "desc": "Máquina familiar con accesorios básicos. Ideal para proyectos de diseño de moda."
+ },
+ {
+  "id": 6,
+  "t": "Escalímetro triangular 30 cm",
+  "ph": [
+   "esc"
+  ],
+  "cat": "Herramientas",
+  "mode": "venta",
+  "price": 5,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Nuevo",
+  "cp": 2,
+  "car": [
+   "Arquitectura",
+   "Ing. Civil"
+  ],
+  "desc": "Escalímetro con 6 escalas, ideal para planos de arquitectura e ingeniería."
+ },
+ {
+  "id": 7,
+  "t": "Regla T para arquitectura 1 m",
+  "ph": [
+   "regla"
+  ],
+  "cat": "Herramientas",
+  "mode": "venta",
+  "price": 8,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Usado",
+  "cp": 3,
+  "car": [
+   "Arquitectura"
+  ],
+  "desc": "Regla T de 1 m para mesa de dibujo."
+ },
+ {
+  "id": 8,
+  "t": "Micrófono RØDE VideoMicro",
+  "ph": [
+   "mic"
+  ],
+  "cat": "Audio",
+  "mode": "alquiler",
+  "price": 0,
+  "rent": 60,
+  "dep": 100,
+  "cond": "Usado",
+  "cp": 0,
+  "car": [
+   "Comunicaciones"
+  ],
+  "desc": "Micrófono on-camera con protector antiviento y cable espiral."
+ },
+ {
+  "id": 9,
+  "t": "Libros de Ingeniería (pack de 4)",
+  "ph": [
+   "pack"
+  ],
+  "cat": "Libros",
+  "mode": "venta",
+  "price": 40,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Usado",
+  "cp": 3,
+  "car": [
+   "Ing. Civil"
+  ],
+  "desc": "Pack de 4 libros de cálculo, estática y materiales."
+ },
+ {
+  "id": 10,
+  "t": "Dron DJI Mini 3 Pro",
+  "ph": [
+   "dron"
+  ],
+  "cat": "Cámaras",
+  "mode": "ambos",
+  "price": 2100,
+  "rent": 120,
+  "dep": 400,
+  "cond": "Semi nuevo",
+  "cp": 3,
+  "car": [
+   "Ing. Civil",
+   "Arquitectura",
+   "Comunicaciones"
+  ],
+  "desc": "Excelente para tomas aéreas y topografía. Incluye 3 baterías, control y hélices extra."
+ },
+ {
+  "id": 11,
+  "t": "Libro Hidráulica de Canales",
+  "ph": [
+   "libro"
+  ],
+  "cat": "Libros",
+  "mode": "alquiler",
+  "price": 0,
+  "rent": 15,
+  "dep": 40,
+  "cond": "Usado",
+  "cp": 3,
+  "car": [
+   "Ing. Civil"
+  ],
+  "desc": "Libro base del curso, edición reciente y sin subrayados."
+ },
+ {
+  "id": 12,
+  "t": "Casco blanco de obra 3M",
+  "ph": [
+   "casco"
+  ],
+  "cat": "Herramientas",
+  "mode": "venta",
+  "price": 35,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Nuevo",
+  "cp": 0,
+  "car": [
+   "Ing. Civil"
+  ],
+  "desc": "Casco certificado, requisito para visitas a obra y laboratorio."
+ },
+ {
+  "id": 13,
+  "t": "iPad Pro M1 + Apple Pencil",
+  "ph": [
+   "ipad"
+  ],
+  "cat": "Laptops",
+  "mode": "venta",
+  "price": 3100,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Semi nuevo",
+  "cp": 1,
+  "car": [
+   "Arquitectura",
+   "Diseño de Moda",
+   "Sistemas"
+  ],
+  "desc": "Impecable, ideal para apuntes y apps de CAD o dibujo digital."
+ },
+ {
+  "id": 14,
+  "t": "Uniforme scrub médico (talla M)",
+  "ph": [
+   "scrub"
+  ],
+  "cat": "Ropa",
+  "mode": "venta",
+  "price": 65,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Nuevo",
+  "cp": 3,
+  "car": [
+   "Salud"
+  ],
+  "desc": "Azul marino, nuevo en bolsa. Para prácticas de laboratorio y salud."
+ },
+ {
+  "id": 15,
+  "t": "Botas punta de acero CAT",
+  "ph": [
+   "botas"
+  ],
+  "cat": "Ropa",
+  "mode": "ambos",
+  "price": 180,
+  "rent": 20,
+  "dep": 50,
+  "cond": "Usado",
+  "cp": 2,
+  "car": [
+   "Ing. Civil"
+  ],
+  "desc": "Talla 42. Para entrar a laboratorio o visitas de campo sin problemas."
+ },
+ {
+  "id": 16,
+  "t": "Kit Arduino Uno + sensores",
+  "ph": [
+   "arduino"
+  ],
+  "cat": "Laptops",
+  "mode": "venta",
+  "price": 120,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Semi nuevo",
+  "cp": 2,
+  "car": [
+   "Sistemas"
+  ],
+  "desc": "Proyectos de electrónica listos para ensamblar. Incluye cables y protoboard."
+ },
+ {
+  "id": 17,
+  "t": "Monitor LG 27\" Full HD",
+  "ph": [
+   "monitor"
+  ],
+  "cat": "Laptops",
+  "mode": "venta",
+  "price": 450,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Usado",
+  "cp": 3,
+  "car": [
+   "Sistemas",
+   "Ing. Civil",
+   "Negocios"
+  ],
+  "desc": "Doble pantalla para Costos y presupuestos, Excel y programación."
+ },
+ {
+  "id": 18,
+  "t": "Apuntes Costos y Presupuestos",
+  "ph": [
+   "apuntes"
+  ],
+  "cat": "Libros",
+  "mode": "venta",
+  "price": 15,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Nuevo",
+  "cp": 1,
+  "car": [
+   "Ing. Civil",
+   "Negocios"
+  ],
+  "desc": "Fórmulas, ACU y plantillas impresas, listas para el examen."
+ },
+ {
+  "id": 19,
+  "t": "Calculadora HP Prime",
+  "ph": [
+   "hpprime"
+  ],
+  "cat": "Calculadoras",
+  "mode": "ambos",
+  "price": 350,
+  "rent": 25,
+  "dep": 100,
+  "cond": "Usado",
+  "cp": 3,
+  "car": [
+   "Ing. Civil",
+   "Sistemas",
+   "Negocios"
+  ],
+  "desc": "Calculadora gráfica ideal para ingeniería. Permitida en exámenes."
+ },
+ {
+  "id": 20,
+  "t": "Mandil de laboratorio (talla S)",
+  "ph": [
+   "mandil"
+  ],
+  "cat": "Ropa",
+  "mode": "venta",
+  "price": 30,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Semi nuevo",
+  "cp": 3,
+  "car": [
+   "Salud"
+  ],
+  "desc": "Mandil blanco de algodón, lavado una sola vez."
+ },
+ {
+  "id": 21,
+  "t": "Teclado mecánico Keychron K2",
+  "ph": [
+   "teclado"
+  ],
+  "cat": "Laptops",
+  "mode": "venta",
+  "price": 190,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Usado",
+  "cp": 0,
+  "car": [
+   "Sistemas",
+   "Negocios"
+  ],
+  "desc": "Inalámbrico, switches marrones. Perfecto para programar o escribir tesis."
+ },
+ {
+  "id": 22,
+  "t": "Tablet gráfica Wacom Intuos",
+  "ph": [
+   "wacom"
+  ],
+  "cat": "Laptops",
+  "mode": "ambos",
+  "price": 280,
+  "rent": 20,
+  "dep": 60,
+  "cond": "Semi nuevo",
+  "cp": 2,
+  "car": [
+   "Diseño de Moda",
+   "Comunicaciones",
+   "Arquitectura"
+  ],
+  "desc": "Ideal para ilustración digital y edición de fotos."
+ },
+ {
+  "id": 23,
+  "t": "Kit de dibujo técnico completo",
+  "ph": [
+   "kit"
+  ],
+  "cat": "Herramientas",
+  "mode": "venta",
+  "price": 45,
+  "rent": 0,
+  "dep": 0,
+  "cond": "Nuevo",
+  "cp": 0,
+  "car": [
+   "Arquitectura",
+   "Ing. Civil"
+  ],
+  "desc": "Escuadras, compás, rapidógrafos y plantillas para planos."
+ },
+ {
+  "id": 24,
+  "t": "Nivel de ingeniero Topcon + trípode",
+  "ph": [
+   "nivel"
+  ],
+  "cat": "Herramientas",
+  "mode": "alquiler",
+  "price": 0,
+  "rent": 80,
+  "dep": 300,
+  "cond": "Usado",
+  "cp": 3,
+  "car": [
+   "Ing. Civil"
+  ],
+  "desc": "Para prácticas de topografía y nivelación en campo. Incluye mira y estuche."
+ }
+]
