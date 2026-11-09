@@ -7,7 +7,7 @@ const db = require('./db');
 (async () => {
   const rows = db.readFiles();              // lee los JSON (formato nuevo y el anterior)
   await db.init();                          // conecta y crea las tablas
-  for (const t of ['users', 'sessions', 'products', 'orders', 'reports', 'reviews', 'removed']) {
+  for (const t of ['users', 'sessions', 'products', 'orders', 'reports', 'reviews', 'removed', 'convs']) {
     const n = rows[t].length ? await db.importRows(t, rows[t]) : 0;
     console.log('  ' + t.padEnd(9) + n + ' registros');
   }
