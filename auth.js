@@ -96,19 +96,27 @@ const ip = (req) => req.ip || (req.socket && req.socket.remoteAddress) || 'x';
  * La cuenta vive solo en memoria (no se escribe en users.json) y pasa por el mismo login con scrypt y límite de intentos.
  * El rol se asigna aquí, en el servidor; el cliente no puede pedirlo ni declararlo.
  */
+let OFFICIAL = null; // { uid, name } de la cuenta oficial (la misma cuenta admin)
+let onReg = null;    // aviso de cuenta nueva (bienvenida)
+const nrm = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 function setupAdmin() {
   const user = String(process.env.ADMIN_USER || '').trim(), pass = String(process.env.ADMIN_PASS || '');
   if (!user && !pass) return console.log('[auth] Admin desactivado: define ADMIN_USER y ADMIN_PASS para habilitarlo.');
   if (!USER_RE.test(user)) return console.error('[auth] Admin desactivado: ADMIN_USER debe tener 3 a 20 caracteres (letras, números, _ y .).');
   if (pass.length < 10 || pass.length > 128) return console.error('[auth] Admin desactivado: ADMIN_PASS debe tener entre 10 y 128 caracteres.');
   if (byName.has(user.toLowerCase())) return console.error('[auth] Admin desactivado: ya existe una cuenta registrada con el usuario "' + user + '". Elige otro ADMIN_USER.');
+  // nombre PÚBLICO (OFFICIAL_NAME). El usuario de login nunca se muestra a otros usuarios
+  let name = clean(process.env.OFFICIAL_NAME || '', 24);
+  if (name.length < 2) name = 'U2U Oficial';
+  OFFICIAL = { uid: 'u_admin', name };
   const salt = crypto.randomBytes(16), k = crypto.scryptSync(pass, salt, KEYLEN, SCRYPT);
   index({
+    // uid FIJO (no depende de ADMIN_USER, ADMIN_PASS ni de reinicios): los productos oficiales siguen siendo suyos siempre
     uid: 'u_admin', secret: crypto.createHmac('sha256', pass).update('u2u-admin-secret-v1').digest('hex').slice(0, 48),
-    username: user, email: 'admin@u2u.invalid', name: 'Administrador', admin: true, createdAt: Date.now(), sessions: [],
+    username: user, email: 'admin@u2u.invalid', name, admin: true, createdAt: Date.now(), sessions: [],
     hash: ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString('base64'), k.toString('base64')].join('$'),
   });
-  console.log('[auth] Admin habilitado para el usuario "' + user + '".');
+  console.log('[auth] Cuenta oficial habilitada · nombre público: "' + name + '"');
 }
 
 function mount(app) {
@@ -131,6 +139,7 @@ function mount(app) {
       if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Escribe un correo válido.', field: 'email' });
       if (pw.length < 8 || pw.length > 128) return res.status(400).json({ error: 'La contraseña debe tener entre 8 y 128 caracteres.', field: 'password' });
       if (WEAK.has(pw.toLowerCase()) || pw.toLowerCase() === username.toLowerCase() || pw.toLowerCase() === email) return res.status(400).json({ error: 'Esa contraseña es muy fácil de adivinar. Elige otra.', field: 'password' });
+      if (OFFICIAL && (nrm(name).includes(nrm(OFFICIAL.name)) || /u2u(oficial|admin)|oficialu2u|administrador/.test(nrm(name)))) return res.status(400).json({ error: 'Ese nombre está reservado para la cuenta oficial.', field: 'name' });
       if (byName.has(username.toLowerCase())) return res.status(409).json({ error: 'Ese usuario ya está en uso.', field: 'username' });
       if (byEmail.has(email)) return res.status(409).json({ error: 'Ese correo ya está registrado.', field: 'email' });
 
@@ -144,6 +153,7 @@ function mount(app) {
       catch (e) { if (e.code === '23505') return res.status(409).json({ error: 'Ese usuario o correo ya está en uso.' }); throw e; }
       index(u); rb.n++;
       const token = await issue(u);
+      if (onReg) { try { onReg(u); } catch (e) { console.error('[auth] bienvenida:', e.message); } } // mensaje de bienvenida de la cuenta oficial
       res.status(201).json({ token, user: pub(u) });
     } catch (e) { console.error('[auth] register', e.message); res.status(500).json({ error: 'Error del servidor. Intenta de nuevo.' }); }
   });
@@ -216,4 +226,4 @@ function setBlocked(uid, flag) {
 }
 const listBlocked = () => [...byUid.values()].filter((u) => u.blocked && !u.admin).map((u) => ({ uid: u.uid, name: u.name, username: u.username, blockedAt: u.blockedAt || 0 }));
 
-module.exports = { mount, accountFor, check, getByUid, setBlocked, listBlocked, flush: () => store.flush() };
+module.exports = { mount, accountFor, check, getByUid, setBlocked, listBlocked, flush: () => store.flush(), official: () => OFFICIAL, onRegister: (fn) => { onReg = fn; } };
