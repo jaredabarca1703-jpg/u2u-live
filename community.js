@@ -116,7 +116,7 @@ module.exports = function community(ctx) {
         const reply = (o) => typeof ack === 'function' && ack(o);
         const me = socket.data;
         if (!me || !me.uid) return reply({ error: 'Primero entra con tu cuenta' });
-        if (me.admin) return reply({ error: 'La cuenta oficial no reporta: modera desde el panel' });
+        if (me.admin) return reply({ error: 'El administrador modera desde el panel' });
         d = d || {};
         if (!hit(me, 'rpts', 10, 10 * 60e3)) return reply({ error: 'Has enviado muchos reportes seguidos. Espera unos minutos' });
 
@@ -203,7 +203,6 @@ module.exports = function community(ctx) {
         if (!hit(me, 'rvs', 10, 10 * 60e3)) return reply({ error: 'Demasiadas reseñas seguidas. Espera unos minutos' });
 
         const o = orders.get(String(d.orderId || ''));
-        if (o && o.ownerId === me.uid) return reply({ error: 'No puedes calificarte a ti mismo' });
         if (!o || o.buyerId !== me.uid) return reply({ error: 'Pedido no encontrado' });
         if (o.status !== 'completed') return reply({ error: 'Solo puedes calificar cuando la entrega ya se confirmó con el código' });
         if (byOrder.has(o.id)) return reply({ error: 'Ya calificaste este pedido' });

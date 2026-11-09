@@ -4,19 +4,16 @@
  *   El servidor emite a cada cuenta su identidad (uid público + secreto privado) y solo
  *   deja entrar al chat en vivo a cuentas registradas: nadie puede suplantar a otro.
  * - Cualquier usuario puede publicar, comprar, alquilar y chatear.
- * - Cuenta OFICIAL = la cuenta admin (ADMIN_USER/ADMIN_PASS) con nombre público OFFICIAL_NAME: vende el catálogo
- *   inicial (seed.json), recibe pedidos, confirma entregas con PIN, chatea y modera. No compra, no reporta, no se califica.
  * - Publicaciones: se guardan, se reenvían en vivo a todos y se entregan a quien entre después.
  * - Chat PRIVADO por producto: solo lo ven el interesado y el dueño de ese producto.
  * - Pedidos con CÓDIGO DE ENTREGA (estilo PedidosYa): al comprar se genera un PIN de 6 dígitos
  *   que solo ve el comprador. El dueño lo ingresa al entregar el producto y recién ahí se
  *   confirma la transacción.
  * - Cuentas, sesiones, publicaciones, pedidos, reportes y reseñas se guardan en PostgreSQL (DATABASE_URL) o,
- *   sin esa variable, en archivos JSON (db.js). Los chats también.
+ *   sin esa variable, en archivos JSON (db.js). Los chats siguen en memoria.
  */
 require('./env'); // variables de entorno: .env en tu PC, panel Environment en Render (ver env.js)
 
-const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
@@ -46,10 +43,8 @@ const products = new Map(); // id -> publicación (catálogo compartido)
 const owners = new Map();   // pid -> uid del dueño
 const orders = new Map();   // id -> pedido
 let lastId = Date.now();
-let OFFICIAL = null;       // cuenta oficial (la admin): { uid, name } o null; se define en boot()
 
 const ownerOf = (pid) => owners.get(pid);
-const ownerOfConv = (c) => (c.pid === 0 ? OFFICIAL && OFFICIAL.uid : ownerOf(c.pid)); // pid 0 = chat directo con la cuenta oficial
 const presence = () => {
   const r = io.sockets.adapter.rooms;
   return {
@@ -93,7 +88,6 @@ function cleanProduct(d, me) {
       desc: String(d.desc || '').trim().slice(0, 500) || 'Sin descripción',
       status: 'available', // available | reserved | sold
       ownerUid: me.uid, ownerName: me.name, ts: Date.now(),
-      official: me.admin === true, // la insignia "Oficial ✓" la decide el servidor, nunca el cliente
     },
   };
 }
@@ -175,10 +169,9 @@ io.on('connection', (socket) => {
     socket.leave('admin');
     socket.join('u:' + uid);
     if (socket.data.admin) socket.join('admin');
-    socket.emit('official', OFFICIAL); // nombre público de la cuenta oficial (nunca su usuario de login)
 
     // Todo lo privado: solo MIS conversaciones y MIS pedidos (como comprador o como dueño)
-    socket.emit('history', [...convs.values()].filter((c) => c.buyerId === uid || ownerOfConv(c) === uid));
+    socket.emit('history', [...convs.values()].filter((c) => c.buyerId === uid || ownerOf(c.pid) === uid));
     socket.emit('orders', [...orders.values()].filter((o) => o.buyerId === uid || o.ownerId === uid).map((o) => view(o, uid)));
     community.onJoin(socket); // publicaciones eliminadas, mis reportes, promedios y (si es admin) el panel
     socket.emit('products', [...products.values()]); // catálogo compartido (público)
@@ -191,6 +184,7 @@ io.on('connection', (socket) => {
     const me = socket.data;
     if (!me || !me.uid) return reply({ error: 'Primero entra con tu nombre' });
 
+    if (me.admin) return reply({ error: 'El administrador no puede publicar' });
     const now = Date.now();
     me.pubs = (me.pubs || []).filter((t) => now - t < 60000);
     if (me.pubs.length >= 5) return reply({ error: 'Demasiadas publicaciones seguidas, espera un minuto' });
@@ -211,8 +205,7 @@ io.on('connection', (socket) => {
     owners.set(p.id, me.uid);
     products.set(p.id, p);
     db.products.put(p);
-    const ev = evictable(); // el tope cuenta solo publicaciones de la comunidad: las oficiales no se descartan
-    if (ev.length > MAX_PRODUCTS) { products.delete(ev[0].id); db.products.del(ev[0].id); }
+    if (products.size > MAX_PRODUCTS) { const old = products.keys().next().value; products.delete(old); db.products.del(old); }
 
     socket.broadcast.emit('new-product', p); // a todos los demás
     reply({ ok: true, id: p.id });
@@ -233,10 +226,10 @@ io.on('connection', (socket) => {
     if (me.hits.length >= 15) return reply({ error: 'Vas muy rápido, espera un momento' });
     me.hits.push(now);
 
-    const pid = parseInt(d.pid, 10) || 0; // pid 0 = chat directo con la cuenta oficial (bienvenida y ayuda)
-    const owner = pid === 0 ? OFFICIAL && OFFICIAL.uid : ownerOf(pid);
-    if (!owner) return reply({ error: pid === 0 ? 'La cuenta oficial no está disponible ahora' : 'Esta publicación ya no está disponible' });
-    if (pid && community.isRemoved(pid)) return reply({ error: 'Esta publicación fue eliminada' });
+    const pid = parseInt(d.pid, 10);
+    const owner = ownerOf(pid);
+    if (!pid || !owner) return reply({ error: 'Producto de ejemplo: chatea con publicaciones de otros estudiantes' });
+    if (community.isRemoved(pid)) return reply({ error: 'Esta publicación fue eliminada' });
 
     let buyerId, from;
     if (owner === me.uid) {
@@ -251,7 +244,7 @@ io.on('connection', (socket) => {
 
     let c = convs.get(key);
     if (!c) {
-      if (convs.size >= MAX_CONVS) { const old = convs.keys().next().value; convs.delete(old); db.convs.del(old); }
+      if (convs.size >= MAX_CONVS) convs.delete(convs.keys().next().value);
       c = { key, pid, buyerId, buyerName: me.name, msgs: [] };
       convs.set(key, c);
     }
@@ -263,7 +256,6 @@ io.on('connection', (socket) => {
     };
     c.msgs.push(msg);
     if (c.msgs.length > MAX_MSGS) c.msgs.shift();
-    c.ts = msg.ts; db.convs.put(c); // el chat queda guardado
 
     io.to('u:' + buyerId).to('u:' + owner).emit('msg', {
       conv: { key, pid, buyerId, buyerName: c.buyerName },
@@ -279,7 +271,7 @@ io.on('connection', (socket) => {
     if (!me || !me.uid) return reply({ error: 'Primero entra con tu nombre' });
     d = d || {};
 
-    if (me.admin) return reply({ error: 'La cuenta oficial vende y modera: no compra ni alquila' });
+    if (me.admin) return reply({ error: 'El administrador no puede comprar ni alquilar' });
     const now = Date.now();
     me.ords = (me.ords || []).filter((t) => now - t < 60000);
     if (me.ords.length >= 5) return reply({ error: 'Demasiados pedidos seguidos, espera un minuto' });
@@ -385,40 +377,6 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => io.emit('presence', presence()));
 });
 
-/* ---------- Cuenta oficial: catálogo inicial (seed.json) y bienvenida ---------- */
-const evictable = () => [...products.values()].filter((p) => !p.official); // los productos oficiales nunca se descartan por el tope
-function seedCatalog() {
-  if (!OFFICIAL) return console.log('[seed] sin cuenta admin (ADMIN_USER/ADMIN_PASS): no se crea el catálogo oficial');
-  let list;
-  try { list = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed.json'), 'utf8')); } catch (e) { return console.error('[seed] no se pudo leer seed.json:', e.message); }
-  const me = { uid: OFFICIAL.uid, name: OFFICIAL.name, admin: true };
-  let made = 0, had = 0, gone = 0;
-  list.forEach((d, i) => {
-    const id = parseInt(d.id, 10);
-    if (!(id > 0 && id <= 1000)) return console.error('[seed] id inválido: ' + d.id);
-    if (community.isRemoved(id)) { gone++; return; } // lo eliminaste desde el panel: no se vuelve a crear
-    if (products.has(id)) { had++; return; }          // ya existe: no se duplica
-    const r = cleanProduct(d, me);
-    if (r.error) return console.error('[seed] producto ' + id + ' omitido: ' + r.error);
-    const p = r.p; p.id = id; p.ts = Date.now() + i; p.official = true;
-    products.set(id, p); owners.set(id, OFFICIAL.uid); db.products.put(p); made++;
-  });
-  console.log('[seed] catálogo oficial: ' + made + ' creados · ' + had + ' ya existían · ' + gone + ' eliminados desde el panel (no se recrean)');
-}
-// Al registrarse, la cuenta oficial le escribe un mensaje de bienvenida (chat directo, pid 0)
-function sendWelcome(u) {
-  if (!OFFICIAL || u.admin) return;
-  const key = '0|' + u.uid;
-  if (convs.has(key)) return;
-  const first = String(u.name).split(' ')[0].slice(0, 16);
-  const text = '¡Hola ' + first + '! 👋 Soy ' + OFFICIAL.name + '. Bienvenido a U2U. Tip para tu primera publicación: toca + Publicar, sube fotos nítidas con buena luz (hasta 3), pon un título claro con marca y modelo y un precio justo. Entrega siempre en un punto seguro del campus. Si tienes dudas, escríbeme por aquí.';
-  const msg = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uid: OFFICIAL.uid, from: 'seller', name: OFFICIAL.name, text, ts: Date.now() };
-  if (convs.size >= MAX_CONVS) { const old = convs.keys().next().value; convs.delete(old); db.convs.del(old); }
-  const c = { key, pid: 0, buyerId: u.uid, buyerName: u.name, msgs: [msg], ts: msg.ts, welcome: true };
-  convs.set(key, c);
-  db.convs.put(c);
-}
-
 const PORT = process.env.PORT || 3000;
 ['SIGTERM', 'SIGINT'].forEach((s) => process.on(s, () => { db.flush().then(() => process.exit(0), () => process.exit(1)); })); // guarda lo pendiente al apagar
 
@@ -429,11 +387,6 @@ async function boot() {
   db.rows('orders').sort((a, b) => a.ts - b.ts).forEach((o) => { const p = products.get(o.pid); if (!o.ph && p && p.ph[0]) o.ph = p.ph[0]; orders.set(o.id, o); });
   accounts.mount(app); // /api/register, /api/login, /api/me, /api/logout
   community = require('./community')({ io, accounts, products, orders, removeProduct, cancelPending, pushOrder });
-  OFFICIAL = accounts.official();
-  db.rows('convs').sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((c) => convs.set(c.key, c)); // chats guardados
-  if (OFFICIAL) for (const p of products.values()) if (p.ownerUid === OFFICIAL.uid) { p.official = true; p.ownerName = OFFICIAL.name; }
-  seedCatalog();                       // crea solo lo que falta (sin duplicar ni recrear lo eliminado)
-  accounts.onRegister(sendWelcome);    // bienvenida automática a cada cuenta nueva
   server.listen(PORT, () => console.log('U2U en vivo escuchando en el puerto ' + PORT));
 }
 boot().catch((e) => { console.error('[boot] no se pudo iniciar:', e.message); process.exit(1); });

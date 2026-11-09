@@ -21,9 +21,8 @@ const T = {
   reports: { kt: 'text', cols: { pid: ['bigint', (d) => d.pid], reporter_uid: ['text', (d) => d.reporterUid], ts: ['bigint', (d) => d.ts] }, uniq: [['pid', 'reporter_uid']] },
   reviews: { kt: 'text', cols: { order_id: ['text', (d) => d.orderId], seller_uid: ['text', (d) => d.sellerUid], ts: ['bigint', (d) => d.ts] }, uniq: [['order_id']], idx: ['seller_uid'] },
   removed: { kt: 'bigint', cols: { uid: ['text', (d) => d.uid || ''] } },
-  convs: { kt: 'text', cols: { buyer_id: ['text', (d) => d.buyerId], pid: ['bigint', (d) => d.pid], ts: ['bigint', (d) => d.ts || 0] }, idx: ['buyer_id'] }, // chats
 };
-const KEY = { users: 'uid', sessions: 'h', products: 'id', orders: 'id', reports: 'id', reviews: 'id', removed: 'pid', convs: 'key' };
+const KEY = { users: 'uid', sessions: 'h', products: 'id', orders: 'id', reports: 'id', reviews: 'id', removed: 'pid' };
 const names = Object.keys(T);
 
 let pool = null;
