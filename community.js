@@ -8,9 +8,9 @@
  *    Cada evento admin:* comprueba socket.data.admin, que sale de la cuenta y nunca del cliente.
  * RESEÑAS
  *  - Solo el comprador de un pedido con entrega confirmada con PIN (status "completed"), una por pedido.
- *  - Se guardan en DATA_DIR/reviews.json; el promedio se calcula en el servidor.
+ *  - Se guardan con db.js (PostgreSQL o archivos); el promedio se calcula en el servidor.
  */
-const store = require('./store');
+const store = require('./db');
 
 const REASONS = { obscena: 1, estafa: 1, falsa: 1, otro: 1 };
 const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, n);
@@ -18,12 +18,17 @@ const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f
 module.exports = function community(ctx) {
   const { io, accounts, products, orders, removeProduct, cancelPending, pushOrder } = ctx;
 
-  const R = store.open('reports.json', { version: 1, seq: 0, reports: [], removed: [] });
-  const V = store.open('reviews.json', { version: 1, reviews: [] });
-  if (!Array.isArray(R.data.reports)) R.data.reports = [];
-  if (!Array.isArray(R.data.removed)) R.data.removed = []; // [{ id, uid }] publicaciones eliminadas por moderación
-  if (!Array.isArray(V.data.reviews)) V.data.reviews = [];
-  R.data.seq = Number(R.data.seq) || 0;
+  // Datos desde db.js (PostgreSQL o archivos). R/V conservan la misma forma que antes para no tocar la lógica.
+  const R = {
+    data: {
+      reports: store.rows('reports').sort((a, b) => a.ts - b.ts),
+      removed: store.rows('removed').map((x) => ({ id: x.pid, uid: x.uid || '' })), // publicaciones eliminadas por moderación
+      seq: 0,
+    },
+    save() {}, flush() {},
+  };
+  const V = { data: { reviews: store.rows('reviews').sort((a, b) => a.ts - b.ts) } };
+  R.data.seq = R.data.reports.reduce((m, r) => Math.max(m, parseInt(String(r.id).slice(1), 10) || 0), 0);
 
   const reported = new Set(R.data.reports.map((r) => r.pid + '|' + r.reporterUid));
   const removed = new Set(R.data.removed.map((x) => x.id));
@@ -56,7 +61,8 @@ module.exports = function community(ctx) {
     if (removed.has(pid)) return;
     removed.add(pid);
     R.data.removed.push({ id: pid, uid: uid || '' });
-    if (R.data.removed.length > 5000) removed.delete(R.data.removed.shift().id);
+    store.removed.put({ pid, uid: uid || '' });
+    if (R.data.removed.length > 5000) { const old = R.data.removed.shift(); removed.delete(old.id); store.removed.del(old.id); }
   };
 
   /* ---------- vista del panel admin ---------- */
@@ -72,11 +78,11 @@ module.exports = function community(ctx) {
     const now = Date.now();
     let n = 0;
     R.data.reports.forEach((r) => {
-      if (r.status === 'open' && match(r)) { r.status = status; r.resolution = resolution; r.resolvedAt = now; r.resolvedBy = by; n++; }
+      if (r.status === 'open' && match(r)) { r.status = status; r.resolution = resolution; r.resolvedAt = now; r.resolvedBy = by; store.reports.put(r); n++; }
     });
     if (R.data.reports.length > 3000) { // recorte: se descartan los resueltos más antiguos
       let extra = R.data.reports.length - 3000;
-      R.data.reports = R.data.reports.filter((r) => !(extra > 0 && r.status !== 'open' && extra--));
+      R.data.reports = R.data.reports.filter((r) => { const drop = extra > 0 && r.status !== 'open' && extra--; if (drop) store.reports.del(r.id); return !drop; });
     }
     R.save();
     return n;
@@ -131,7 +137,7 @@ module.exports = function community(ctx) {
           pprice: p.price, prent: p.rent, ownerUid: p.ownerUid, ownerName: p.ownerName,
           reporterUid: me.uid, reporterName: me.name, reason, note, ts: Date.now(), status: 'open',
         });
-        R.save();
+        store.reports.put(R.data.reports[R.data.reports.length - 1]);
         pushAdmin();
         reply({ ok: true });
       });
@@ -211,7 +217,7 @@ module.exports = function community(ctx) {
         };
         V.data.reviews.push(r);
         addAgg(r);
-        V.save();
+        store.reviews.put(r);
         pushOrder(o); // ambos ven el pedido como "reseña enviada"
         io.emit('rating', { uid: o.ownerId, ...rating(o.ownerId) });
         io.to('u:' + o.ownerId).emit('review:new', { from: me.name, rating: stars });
@@ -230,6 +236,6 @@ module.exports = function community(ctx) {
       });
     },
 
-    flush() { R.flush(); V.flush(); },
+    flush() {},
   };
 };

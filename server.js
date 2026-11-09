@@ -9,29 +9,17 @@
  * - Pedidos con CÓDIGO DE ENTREGA (estilo PedidosYa): al comprar se genera un PIN de 6 dígitos
  *   que solo ve el comprador. El dueño lo ingresa al entregar el producto y recién ahí se
  *   confirma la transacción.
- * - Todo vive en memoria (se borra al reiniciar el servidor): ideal para demo.
+ * - Cuentas, sesiones, publicaciones, pedidos, reportes y reseñas se guardan en PostgreSQL (DATABASE_URL) o,
+ *   sin esa variable, en archivos JSON (db.js). Los chats siguen en memoria.
  */
-/* Variables de entorno: en Render se definen en el panel (Environment); en tu computadora, en un archivo .env
- * (ignorado por git). Lo que ya venga definido en el entorno tiene prioridad sobre el .env. Sin dependencias nuevas. */
-(function loadEnv() {
-  try {
-    const f = require('path').join(__dirname, '.env');
-    if (!require('fs').existsSync(f)) return;
-    require('fs').readFileSync(f, 'utf8').split(/\r?\n/).forEach((l) => {
-      const m = /^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/.exec(l);
-      if (!m || l.trim().startsWith('#')) return;
-      let v = m[2];
-      if (/^(['"]).*\1$/.test(v)) v = v.slice(1, -1);
-      if (process.env[m[1]] === undefined) process.env[m[1]] = v;
-    });
-  } catch (e) { console.warn('[env] no se pudo leer .env:', e.message); }
-})();
+require('./env'); // variables de entorno: .env en tu PC, panel Environment en Render (ver env.js)
 
 const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
+const db = require('./db');
 const accounts = require('./auth');
 
 const app = express();
@@ -39,12 +27,11 @@ app.set('trust proxy', 1); // Render va detrás de un proxy: así req.ip es la I
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e6 }); // 1 MB por mensaje (fotos incluidas)
 
-accounts.mount(app); // /api/register, /api/login, /api/me, /api/logout
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
 
 const MAX_CONVS = 500, MAX_MSGS = 200, MAX_PRODUCTS = 50, MAX_ORDERS = 1000;
-const MAX_PHOTOS = 3, MAX_PHOTO = 250000, MAX_TOTAL = 450000; // tamaños de fotos (caracteres base64)
+const MAX_PHOTOS = 3, MAX_PHOTO = 250000, MAX_TOTAL = 620000; // fotos (caracteres base64): el cliente las reduce a 1024 px y ≤150 KB c/u
 const MAX_PIN_FAILS = 5, LOCK_MS = 5 * 60 * 1000;             // 5 intentos y bloqueo de 5 minutos
 const CATS = ['Cámaras', 'Laptops', 'Calculadoras', 'Herramientas', 'Libros', 'Audio', 'Ropa'];
 const MODES = ['venta', 'alquiler', 'ambos'];
@@ -108,6 +95,7 @@ function cleanProduct(d, me) {
 function setStatus(p, status) {
   if (p.status === status) return;
   p.status = status;
+  db.products.put(p);
   io.emit('product-status', { id: p.id, status }); // todos ven el cambio al instante
 }
 
@@ -132,7 +120,10 @@ function view(o, uid) {
   v.reviewed = community.reviewed(o.id); // ya tiene reseña (una por pedido)
   return v;
 }
+// la foto del pedido es copia de la de la publicación: no se duplica en la base (se vuelve a enlazar al cargar)
+const saveOrder = (o) => db.orders.put(/^data:/.test(o.ph) ? { ...o, ph: '' } : o);
 function pushOrder(o) {
+  saveOrder(o); // todo cambio de un pedido pasa por aquí: queda guardado
   io.to('u:' + o.buyerId).emit('order', view(o, o.buyerId));
   io.to('u:' + o.ownerId).emit('order', view(o, o.ownerId));
 }
@@ -151,10 +142,11 @@ function removeProduct(pid) {
   cancelPending((o) => o.pid === pid);
   if (!products.has(pid)) return false;
   products.delete(pid);
+  db.products.del(pid);
   io.emit('product-removed', { id: pid }); // desaparece al instante para todos
   return true;
 }
-const community = require('./community')({ io, accounts, products, orders, removeProduct, cancelPending, pushOrder });
+let community; // se crea en boot(), cuando la base de datos ya cargó
 
 io.on('connection', (socket) => {
   socket.data = {};
@@ -212,7 +204,8 @@ io.on('connection', (socket) => {
     me.pubs.push(now);
     owners.set(p.id, me.uid);
     products.set(p.id, p);
-    if (products.size > MAX_PRODUCTS) products.delete(products.keys().next().value);
+    db.products.put(p);
+    if (products.size > MAX_PRODUCTS) { const old = products.keys().next().value; products.delete(old); db.products.del(old); }
 
     socket.broadcast.emit('new-product', p); // a todos los demás
     reply({ ok: true, id: p.id });
@@ -309,7 +302,7 @@ io.on('connection', (socket) => {
     }
     const total = base + 10 + (del === 'home' ? 15 : 0);
 
-    if (orders.size >= MAX_ORDERS) orders.delete(orders.keys().next().value);
+    if (orders.size >= MAX_ORDERS) { const old = orders.keys().next().value; orders.delete(old); db.orders.del(old); }
     const o = {
       id: newOrderId(), pid, t: p.t, ph: p.ph[0] || '', mode, total, days, del, from, to,
       cp: Math.min(3, Math.max(0, parseInt(d.cp, 10) || 0)),
@@ -343,7 +336,7 @@ io.on('connection', (socket) => {
 
     const a = Buffer.from(pin), b = Buffer.from(o.pin);
     if (!crypto.timingSafeEqual(a, b)) {
-      o.fails++;
+      o.fails++; saveOrder(o); // los intentos fallidos también sobreviven a un reinicio
       if (o.fails >= MAX_PIN_FAILS) {
         o.fails = 0; o.lockedUntil = now + LOCK_MS;
         pushOrder(o);
@@ -385,5 +378,15 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-['SIGTERM', 'SIGINT'].forEach((s) => process.on(s, () => { accounts.flush(); community.flush(); process.exit(0); })); // guarda cuentas al apagar
-server.listen(PORT, () => console.log('U2U en vivo escuchando en el puerto ' + PORT));
+['SIGTERM', 'SIGINT'].forEach((s) => process.on(s, () => { db.flush().then(() => process.exit(0), () => process.exit(1)); })); // guarda lo pendiente al apagar
+
+/* Arranque: primero la base de datos (o los archivos), luego cuentas, comunidad y el servidor */
+async function boot() {
+  await db.init();
+  db.rows('products').sort((a, b) => a.ts - b.ts).forEach((p) => { products.set(p.id, p); owners.set(p.id, p.ownerUid); lastId = Math.max(lastId, p.id); });
+  db.rows('orders').sort((a, b) => a.ts - b.ts).forEach((o) => { const p = products.get(o.pid); if (!o.ph && p && p.ph[0]) o.ph = p.ph[0]; orders.set(o.id, o); });
+  accounts.mount(app); // /api/register, /api/login, /api/me, /api/logout
+  community = require('./community')({ io, accounts, products, orders, removeProduct, cancelPending, pushOrder });
+  server.listen(PORT, () => console.log('U2U en vivo escuchando en el puerto ' + PORT));
+}
+boot().catch((e) => { console.error('[boot] no se pudo iniciar:', e.message); process.exit(1); });

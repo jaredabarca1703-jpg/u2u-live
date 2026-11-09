@@ -3,55 +3,32 @@
  * - Contraseña: crypto.scrypt con sal aleatoria. Nunca se guarda ni se registra en texto plano.
  * - Sesión: token aleatorio de 256 bits; en el servidor solo se guarda su SHA-256 (30 días).
  * - Límite de intentos: por IP y por cuenta (bloqueo temporal).
- * - Cuentas en data/users.json (carpeta ignorada por git; configurable con DATA_DIR).
- *   OJO: en Render el disco es efímero, el archivo se borra al redesplegar.
+ * - Cuentas, bloqueos y sesiones se guardan con db.js: PostgreSQL (DATABASE_URL) o archivos JSON.
+ *   La cuenta admin (ADMIN_USER / ADMIN_PASS) vive solo en memoria y no se guarda en la base.
  */
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
+const store = require('./db');
 
-const DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
-const FILE = path.join(DIR, 'users.json');
 const SESSION_MS = 30 * 864e5, MAX_SESSIONS = 5;
 const SCRYPT = { N: 16384, r: 8, p: 1 }, KEYLEN = 64;
 const LOGIN_FAILS = 5, LOGIN_WINDOW = 15 * 60e3;   // 5 fallos por cuenta -> bloqueo de 15 min
 const IP_MAX = 100, REG_MAX = 10;                  // por IP (holgado: varias personas comparten el WiFi del campus)
 const WEAK = new Set(['12345678', '123456789', '1234567890', 'password', 'contraseña', 'qwertyui', '11111111', '00000000', 'abcd1234', 'u2u12345']);
 
-let db = { version: 1, users: [] };
 const byName = new Map(), byEmail = new Map(), byUid = new Map(), bySess = new Map();
 
-/* ---------- almacenamiento en archivo ---------- */
+/* ---------- almacenamiento (db.js: PostgreSQL o archivos JSON) ---------- */
 function index(u) {
   byName.set(u.username.toLowerCase(), u); byEmail.set(u.email, u); byUid.set(u.uid, u);
   (u.sessions || []).forEach((s) => bySess.set(s.h, u));
 }
+const userRow = (u) => { const { sessions, ...r } = u; return r; }; // la cuenta admin nunca se guarda
 function load() {
-  fs.mkdirSync(DIR, { recursive: true });
-  try {
-    db = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-    if (!db || !Array.isArray(db.users)) throw new Error('formato');
-  } catch (e) {
-    if (e.code !== 'ENOENT') { // archivo dañado: se respalda (no se pierde) y se arranca vacío
-      try { fs.renameSync(FILE, path.join(DIR, 'users.corrupt-' + Date.now() + '.json')); } catch (_) {}
-      console.warn('[auth] users.json ilegible: respaldado, se inicia sin cuentas');
-    }
-    db = { version: 1, users: [] };
-  }
-  db.users.forEach(index);
+  const by = new Map();
+  store.rows('sessions').forEach((s) => { if (!by.has(s.uid)) by.set(s.uid, []); by.get(s.uid).push({ h: s.h, exp: s.exp }); });
+  store.rows('users').forEach((r) => index({ ...r, sessions: by.get(r.uid) || [] }));
 }
-let timer = null;
-function flush() {
-  clearTimeout(timer);
-  try {
-    fs.mkdirSync(DIR, { recursive: true });
-    const tmp = FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(db));
-    fs.renameSync(tmp, FILE); // escritura atómica: nunca queda a medias
-  } catch (e) { console.error('[auth] no se pudo guardar users.json:', e.message); }
-}
-const saveSoon = () => { clearTimeout(timer); timer = setTimeout(flush, 300); };
 
 /* ---------- contraseñas ---------- */
 const scrypt = (pw, salt, len, o) => new Promise((ok, no) => crypto.scrypt(pw, salt, len, o, (e, k) => (e ? no(e) : ok(k))));
@@ -86,13 +63,16 @@ const tooMany = (res, b) => res.status(429).json({ error: 'Demasiados intentos. 
 
 /* ---------- sesiones ---------- */
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
-function issue(u) {
+async function issue(u) { // la sesión queda guardada (sobrevive a reinicios); la del admin solo vive en memoria
   const token = crypto.randomBytes(32).toString('hex'), now = Date.now();
+  const drop = (s) => { bySess.delete(s.h); if (!u.admin) store.sessions.del(s.h); };
+  (u.sessions || []).filter((s) => s.exp <= now).forEach(drop);
   u.sessions = (u.sessions || []).filter((s) => s.exp > now);
-  u.sessions.push({ h: sha(token), exp: now + SESSION_MS });
-  while (u.sessions.length > MAX_SESSIONS) bySess.delete(u.sessions.shift().h);
-  bySess.set(u.sessions[u.sessions.length - 1].h, u);
-  saveSoon();
+  const s = { h: sha(token), exp: now + SESSION_MS };
+  u.sessions.push(s);
+  while (u.sessions.length > MAX_SESSIONS) drop(u.sessions.shift());
+  bySess.set(s.h, u);
+  if (!u.admin) await store.sessions.put({ h: s.h, uid: u.uid, exp: s.exp }, { sync: true });
   return token;
 }
 const pub = (u) => ({ uid: u.uid, secret: u.secret, name: u.name, username: u.username, admin: !!u.admin }); // admin: solo informativo para la interfaz; el servidor lo vuelve a comprobar en cada acción
@@ -160,9 +140,10 @@ function mount(app) {
         uid: 'u_' + crypto.randomBytes(6).toString('hex'), secret: crypto.randomBytes(24).toString('hex'),
         username, email, name, hash, createdAt: Date.now(), sessions: [],
       };
-      db.users.push(u); index(u); rb.n++;
-      const token = issue(u);
-      saveSoon();
+      try { await store.users.put(userRow(u), { sync: true }); } // guardada antes de responder
+      catch (e) { if (e.code === '23505') return res.status(409).json({ error: 'Ese usuario o correo ya está en uso.' }); throw e; }
+      index(u); rb.n++;
+      const token = await issue(u);
       res.status(201).json({ token, user: pub(u) });
     } catch (e) { console.error('[auth] register', e.message); res.status(500).json({ error: 'Error del servidor. Intenta de nuevo.' }); }
   });
@@ -185,7 +166,7 @@ function mount(app) {
       }
       hits.delete('acc:' + id);
       if (u.blocked) return res.status(403).json({ error: 'Tu cuenta fue bloqueada por incumplir las normas de la comunidad.', blocked: true });
-      res.json({ token: issue(u), user: pub(u) });
+      res.json({ token: await issue(u), user: pub(u) });
     } catch (e) { console.error('[auth] login', e.message); res.status(500).json({ error: 'Error del servidor. Intenta de nuevo.' }); }
   });
 
@@ -194,13 +175,13 @@ function mount(app) {
     if (++b.n > 120) return tooMany(res, b);
     const s = fromReq(req);
     if (!s) return res.status(401).json({ error: 'Sesión no válida' });
-    if (s.s.exp - Date.now() < SESSION_MS - 864e5) { s.s.exp = Date.now() + SESSION_MS; saveSoon(); } // sesión deslizante
+    if (s.s.exp - Date.now() < SESSION_MS - 864e5) { s.s.exp = Date.now() + SESSION_MS; if (!s.u.admin) store.sessions.put({ h: s.s.h, uid: s.u.uid, exp: s.s.exp }); } // sesión deslizante
     res.json({ user: pub(s.u) });
   });
 
   api.post('/logout', (req, res) => {
     const s = fromReq(req);
-    if (s) { s.u.sessions = s.u.sessions.filter((x) => x.h !== s.h); bySess.delete(s.h); saveSoon(); }
+    if (s) { s.u.sessions = s.u.sessions.filter((x) => x.h !== s.h); bySess.delete(s.h); if (!s.u.admin) store.sessions.del(s.h); }
     res.json({ ok: true });
   });
 
@@ -229,9 +210,10 @@ function setBlocked(uid, flag) {
     (u.sessions || []).forEach((s) => bySess.delete(s.h)); // se revocan todas sus sesiones
     u.sessions = [];
   } else { delete u.blocked; delete u.blockedAt; }
-  saveSoon();
+  store.users.put(userRow(u));
+  if (flag) store.sessions.delByUid(u.uid);
   return u;
 }
-const listBlocked = () => db.users.filter((u) => u.blocked).map((u) => ({ uid: u.uid, name: u.name, username: u.username, blockedAt: u.blockedAt || 0 }));
+const listBlocked = () => [...byUid.values()].filter((u) => u.blocked && !u.admin).map((u) => ({ uid: u.uid, name: u.name, username: u.username, blockedAt: u.blockedAt || 0 }));
 
-module.exports = { mount, accountFor, check, getByUid, setBlocked, listBlocked, flush };
+module.exports = { mount, accountFor, check, getByUid, setBlocked, listBlocked, flush: () => store.flush() };
