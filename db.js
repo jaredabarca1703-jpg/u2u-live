@@ -4,6 +4,9 @@
  *  - El servidor trabaja con los datos en memoria y los escribe aquí en segundo plano (cola con reintentos);
  *    al iniciar los vuelve a cargar. Las consultas son siempre parametrizadas.
  *  - La cuenta admin (ADMIN_USER / ADMIN_PASS) NUNCA se guarda aquí: vive solo en memoria (ver auth.js).
+ *  - v8.6.3 (bloque 3): put({sync:true}) también garantiza escritura inmediata en modo archivos, y las tablas
+ *    con datos de la comunidad (products, orders, convs, reviews, reports, removed) NO admiten del():
+ *    se marcan con put({deleted_at, ...}). El aviso de espacio lo da server.js (STORAGE_LIMIT_MB).
  */
 const fs = require('fs');
 const path = require('path');
@@ -24,6 +27,7 @@ const T = {
   convs: { kt: 'text', cols: { buyer_id: ['text', (d) => d.buyerId], pid: ['bigint', (d) => d.pid], ts: ['bigint', (d) => d.ts || 0] }, idx: ['buyer_id'] }, // chats
 };
 const KEY = { users: 'uid', sessions: 'h', products: 'id', orders: 'id', reports: 'id', reviews: 'id', removed: 'pid', convs: 'key' };
+const NO_DEL = new Set(['products', 'orders', 'convs', 'reviews', 'reports', 'removed']); // datos de la comunidad: nunca se borran
 const names = Object.keys(T);
 
 let pool = null;
@@ -154,8 +158,7 @@ async function init() {
     await q('DELETE FROM sessions WHERE exp < $1', [Date.now()]); // sesiones vencidas
     for (const t of names) initial[t] = (await q('SELECT data FROM ' + t)).rows.map((r) => r.data);
     console.log('[db] PostgreSQL conectado · ' + initial.users.length + ' cuentas, ' + initial.products.length + ' publicaciones, ' + initial.orders.length + ' pedidos');
-    usage().then((u) => u && console.log('[db] espacio usado: ' + u.mb + ' MB de 512 MB (plan gratis de Neon) · fotos: ' + u.photosMb + ' MB')).catch(() => {});
-    setInterval(() => usage().then((u) => u && u.mb > 400 && console.warn('[db] ATENCIÓN: ' + u.mb + ' MB de 512 MB. Elimina publicaciones viejas o reduce fotos.')).catch(() => {}), 6 * 3600e3).unref();
+    usage().then((u) => u && console.log('[db] espacio usado: ' + u.mb + ' MB (plan gratis de Neon: 512 MB) · fotos: ' + u.photosMb + ' MB')).catch(() => {});
   } else {
     initial = readFiles();
     names.forEach((t) => { mem[t] = new Map(initial[t].map((d) => [String(d[KEY[t]]), d])); });
@@ -180,11 +183,17 @@ function table(t) {
     /* guarda o actualiza un registro; { sync: true } espera a que quede escrito (o lanza el error) */
     async put(doc, opt) {
       const k = String(doc[key]);
-      if (MODE === 'file') { mem[t].set(k, doc); fileMark(t); return; }
+      if (MODE === 'file') {
+        mem[t].set(k, doc);
+        if (opt && opt.sync) { dirty.add(t); fileFlush(); if (dirty.has(t)) throw new Error('no se pudo escribir ' + t); return; } // sync = ya está en disco
+        fileMark(t);
+        return;
+      }
       if (opt && opt.sync) { pend.delete(t + '|' + k); await q(sqlUpsert(t), upsertArgs(t, doc)); return; }
       enqueue(t, k, doc);
     },
     del(k) {
+      if (NO_DEL.has(t)) { console.error('[db] borrado bloqueado en ' + t + ': usa put({deleted_at, ...}). No se borró nada.'); return; }
       k = String(k);
       if (MODE === 'file') { mem[t].delete(k); fileMark(t); return; }
       enqueue(t, k, null);
