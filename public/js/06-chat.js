@@ -30,6 +30,8 @@ V.lchat=key=>{const[pid,bid]=key.split('|'),p=(pid==0&&LV.off?offP():P(pid))||{i
  <div class="flex gap-2 overflow-x-auto no-sb px-3 pt-2 items-center"><span class="text-[10px] font-bold text-purple-600 shrink-0">${own?'⚡ Respuestas rápidas':'✨ IA sugiere'}</span>${LV.chips.map((q,i)=>`<button class="chip" onclick="lsend('${key}',LV.chips[${i}])">${esc(q)}</button>`).join('')}</div>
  <div class="flex gap-2 p-3"><input id="ci" onkeydown="event.key=='Enter'&&lsend('${key}')" autocomplete="off" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-100 rounded-full px-4 py-3 text-sm outline-none"><button onclick="lsend('${key}')" aria-label="Enviar" class="bg-brand text-white rounded-full p-3"><i data-lucide="send" class="w-5"></i></button></div></div>`};
 function lchatR(k){const m=$('#ml');if(!m)return;const c=LV.convs[k];if(c){c.un=0;seenSet(k)}
+ const lm=c&&c.msgs[c.msgs.length-1],stick=!m.firstElementChild||m.scrollHeight-m.scrollTop-m.clientHeight<80||!!(lm&&LV.me&&lm.uid==LV.me.uid); /* si estás leyendo mensajes viejos, un mensaje nuevo no te baja */
+ const sy=m.scrollTop;
  m.innerHTML=c&&c.msgs.length?c.msgs.map(x=>{const me=x.uid==LV.me.uid;return `<div class="flex ${me?'justify-end':''}"><div class="max-w-[78%]">${me?'':`<p class="text-[10px] text-slate-400 ml-1">${esc(x.name)}</p>`}<div class="px-3 py-2 rounded-2xl text-sm break-words ${me?'bg-brand text-white rounded-br-sm':'bg-white border rounded-bl-sm'}">${esc(x.text)}<p class="text-[9px] opacity-60 text-right">${tm(x.ts)}</p></div></div></div>`}).join(''):'<p class="text-center text-xs text-slate-400 mt-10">Escribe o usa una respuesta rápida para empezar.</p>';
- m.scrollTop=m.scrollHeight;navDot()}
+ m.scrollTop=stick?m.scrollHeight:sy;navDot()}
 

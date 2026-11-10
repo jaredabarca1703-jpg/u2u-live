@@ -4,8 +4,10 @@ const NAVS=['home','map','msgs','profile'];
 function nav(s,a){S.st.push({s:S.s,a:S.a});S.s=s;S.a=a;R()}
 function back(){const p=S.st.pop()||{s:'home'};S.s=p.s;S.a=p.a;R()}
 function root(s,a){S.st=[];S.s=s;S.a=a;R()}
-function R(keep){const v=$('#v'),y=v.scrollTop;v.style.animation='none';v.offsetWidth;v.style.animation='';
+function R(keep){const v=$('#v'),y=v.scrollTop,xs=keep?[...v.querySelectorAll('.no-sb')].map(e=>e.scrollLeft):[];
+ if(!keep){v.style.animation='none';v.offsetWidth;v.style.animation=''} /* R(1) = repintado por eventos del servidor: sin animación de entrada ni saltos */
  v.innerHTML=V[S.s](S.a);v.scrollTop=keep?y:0;
+ if(keep)v.querySelectorAll('.no-sb').forEach((e,i)=>{if(xs[i])e.scrollLeft=xs[i]});
  const n=$('#nav');n.classList.toggle('hidden',!NAVS.includes(S.s));
  const b=(s,i,l)=>`<button onclick="root('${s}')" class="flex flex-col items-center gap-0.5 ${S.s==s?'text-brand font-semibold':''}"><i data-lucide="${i}"></i>${l}</button>`;
  const t=(s,i,l)=>`<button onclick="root('${s}')" aria-label="${l}" class="p-2 ${S.s==s?'text-brand':'text-slate-500'}"><i data-lucide="${i}" class="w-7 h-7"></i></button>`;
@@ -14,7 +16,7 @@ function R(keep){const v=$('#v'),y=v.scrollTop;v.style.animation='none';v.offset
 function toast(t){const e=$('#toast');e.textContent=t;e.style.opacity=1;clearTimeout(e.t);e.t=setTimeout(()=>e.style.opacity=0,2200)}
 function M(h){const m=$('#modal');m.innerHTML=h;fixAlt();m.classList.remove('hidden');m.classList.add('flex');lucide.createIcons()}
 function X(){if(window._cfr){const r=_cfr;_cfr=null;r(false)}const m=$('#modal');m.classList.add('hidden');m.classList.remove('flex')}
-const hd=(t,r='')=>`<div class="sticky top-0 bg-white/95 backdrop-blur z-20 flex items-center gap-3 px-4 py-3 border-b"><button onclick="back()"><i data-lucide="arrow-left"></i></button><b class="flex-1 truncate">${t}</b>${r}</div>`;
+const hd=(t,r='')=>`<div class="sticky top-0 bg-white z-20 flex items-center gap-3 px-4 py-3 border-b"><button onclick="back()"><i data-lucide="arrow-left"></i></button><b class="flex-1 truncate">${t}</b>${r}</div>`;
 function openP(id){const p=P(id);S.vm=p.mode=='alquiler'?'alquiler':'venta';nav('detail',id)}
 function fav(id){const i=ST.fav.indexOf(id);i<0?ST.fav.push(id):ST.fav.splice(i,1);save();R(1)}
 /* =================== TARJETA (estilo Marketplace) =================== */
