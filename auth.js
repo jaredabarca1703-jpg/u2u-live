@@ -6,6 +6,9 @@
  *   Envío (bloque 6): Brevo por fetch (EMAIL_PROVIDER, BREVO_API_KEY, EMAIL_FROM); sin proveedor o con EMAIL_DEV_MODE=true el código sale
  *   en la consola. Límites en la tabla counters (5/hora por correo, 200/hora por IP, EMAIL_DAILY_LIMIT al día). REGISTRO_MANUAL=true:
  *   la cuenta queda pendiente hasta que la cuenta oficial la apruebe. Las cuentas sin verificar se borran a las 72 h.
+ * - v8.6.7 (bloque 7): login por correo (con usuario solo entran cuentas anteriores a la verificación y la oficial), /api/me ampliado,
+ *   PUT /api/me, recuperación de contraseña con código (respuestas iguales exista o no el correo) y cambio de contraseña:
+ *   rota el secret de Socket.io y revoca todas las sesiones.
  * - Sesión: token aleatorio de 256 bits; en el servidor solo se guarda su SHA-256 (30 días).
  * - Límite de intentos: por IP y por cuenta (bloqueo temporal).
  * - Cuentas, bloqueos y sesiones se guardan con db.js: PostgreSQL (DATABASE_URL) o archivos JSON.
@@ -30,6 +33,7 @@ const CYCLES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 /* Correo (bloque 6) */
 const EMAIL_PER_HOUR = 5, IP_PER_HOUR = 200, UNVERIFIED_MS = 72 * 3600e3;
+const EMAIL_LIMIT_MSG = 'Ya se enviaron ' + EMAIL_PER_HOUR + ' códigos a este correo en la última hora. Intenta más tarde.';
 const envBool = (n) => String(process.env[n] || '').trim().toLowerCase() === 'true';
 const dailyLimit = () => { const n = parseInt(process.env.EMAIL_DAILY_LIMIT, 10); return Number.isFinite(n) && n > 0 ? n : 250; };
 
@@ -114,8 +118,10 @@ async function issue(u) { // la sesión queda guardada (sobrevive a reinicios); 
 }
 // Datos de la propia cuenta (nunca incluye el correo). admin: solo informativo; el servidor lo vuelve a comprobar en cada acción.
 const pub = (u) => ({
-  uid: u.uid, secret: u.secret, name: u.name, username: u.username, admin: !!u.admin, verified: isVerified(u), pending: !!u.pending,
-  profile: u.cond ? { cond: u.cond, career: u.career, cycle: u.cycle, campus: u.campus, vis: u.vis || {} } : null,
+  uid: u.uid, secret: u.secret, name: u.name, admin: !!u.admin, verified: isVerified(u), pending: !!u.pending,
+  ...(u.admin || u.verified === undefined ? { username: u.username } : {}), // el usuario de login solo existe en cuentas anteriores al bloque 5
+  ...(u.admin ? {} : { email: u.email }), // solo su dueño lo ve; nunca en perfiles públicos
+  condition: u.cond || null, career: u.career || null, cycle: u.cycle || null, campus: u.campus || null, vis: u.vis || null,
 });
 // Lo que ven los demás: nombre, insignia y, solo si la persona lo permitió, carrera, ciclo y sede. Nunca correo ni usuario de login.
 function publicProfile(u) {
@@ -174,13 +180,14 @@ function parseFrom(s) { // "U2U <no-reply@dominio.com>" o "no-reply@dominio.com"
 const html = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function providerMailer(m) {
   const c = emailCfg();
-  if (!c.live) return console.log('[auth] (modo consola) código de verificación de la cuenta ' + m.uid + ': ' + m.code + ' · vence en 10 min');
+  const rec = m.kind === 'recover';
+  if (!c.live) return console.log('[auth] (modo consola) código de ' + (rec ? 'recuperación' : 'verificación') + ' de la cuenta ' + m.uid + ': ' + m.code + ' · vence en 10 min');
   const from = parseFrom(c.from);
   if (!from) throw new Error('EMAIL_FROM no es válido');
   const r = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST', headers: { 'api-key': c.key, 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify({
-      sender: from, to: [{ email: m.to, name: m.name }], subject: 'Tu código de U2U: ' + m.code,
+      sender: from, to: [{ email: m.to, name: m.name }], subject: (rec ? 'Recupera tu cuenta de U2U: ' : 'Tu código de U2U: ') + m.code,
       htmlContent: '<p>Hola ' + html(String(m.name).split(' ')[0]) + ', tu código de verificación de U2U es:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">' + m.code + '</p><p>Vence en 10 minutos. Si no creaste una cuenta en U2U, ignora este correo.</p>',
     }),
     signal: AbortSignal.timeout(10000),
@@ -188,15 +195,15 @@ async function providerMailer(m) {
   if (!r.ok) throw new Error('el proveedor de correo respondió ' + r.status); // solo el estado: nunca el cuerpo, la clave ni el correo
 }
 let mailer = null; // setMailer(fn) lo reemplaza (pruebas)
-async function sendCode(u, code) { // true si salió; nunca lanza: la cuenta ya existe y puede pedir otro código con /resend
-  try { await (mailer || providerMailer)({ to: u.email, name: u.name, uid: u.uid, code }); return true; }
+async function sendCode(u, code, kind) { // true si salió; nunca lanza: la cuenta ya existe y puede pedir otro código con /resend
+  try { await (mailer || providerMailer)({ to: u.email, name: u.name, uid: u.uid, code, kind }); return true; }
   catch (e) { console.error('[auth] no se pudo enviar el código: ' + e.message); return false; }
 }
 /* Límites de envío en Postgres (tabla counters, UPSERT atómico): 5/hora por correo, 200/hora por IP (tope alto: en el campus
    todos comparten IP) y EMAIL_DAILY_LIMIT global por día (hora de Lima). Cada intento cuenta. null = se puede enviar; si no, el mensaje. */
 async function emailBudget(email, address) {
   const now = Date.now(), hr = String(Math.floor(now / 3600e3)), day = new Date(now - 5 * 3600e3).toISOString().slice(0, 10);
-  if (await store.counters.hit('mail:e:' + sha(email).slice(0, 32), hr) > EMAIL_PER_HOUR) return 'Ya se enviaron ' + EMAIL_PER_HOUR + ' códigos a este correo en la última hora. Intenta más tarde.';
+  if (await store.counters.hit('mail:e:' + sha(email).slice(0, 32), hr) > EMAIL_PER_HOUR) return EMAIL_LIMIT_MSG;
   if (await store.counters.hit('mail:i:' + sha(address).slice(0, 32), hr) > IP_PER_HOUR) return 'Hay demasiadas solicitudes desde esta red. Intenta en unos minutos.';
   if (await store.counters.hit('mail:day', day) > dailyLimit()) return 'Hoy se alcanzó el límite, vuelve mañana.';
   return null;
@@ -209,6 +216,24 @@ function whoFor(req, email) {
   const e = parseUpcEmail(email);
   return e ? live(byEmail.get(e)) : null;
 }
+
+/* ---------- contraseña nueva: validación, cambio con rotación de secret y revocación de sesiones (bloque 7) ---------- */
+function pwProblem(pw, email) {
+  if (pw.length < 8 || pw.length > 128) return 'La contraseña debe tener entre 8 y 128 caracteres.';
+  const l = pw.toLowerCase();
+  if (WEAK.has(l) || l === email || l === String(email).split('@')[0]) return 'Esa contraseña es muy fácil de adivinar. Elige otra.';
+  return null;
+}
+let onRot = null; // aviso de secret rotado: server.js desconecta los sockets de esa cuenta
+async function applyPassword(u, pw) { // se guarda ANTES de confirmar; si no se puede guardar, todo queda como estaba
+  const hash = await hashPw(pw), old = { hash: u.hash, secret: u.secret };
+  u.hash = hash; u.secret = crypto.randomBytes(24).toString('hex');
+  try { await saveUser(u); } catch (e) { u.hash = old.hash; u.secret = old.secret; throw e; }
+  (u.sessions || []).forEach((s) => bySess.delete(s.h)); u.sessions = [];
+  store.sessions.delByUid(u.uid);
+  if (onRot) { try { onRot(u.uid); } catch (e) { console.error('[auth] rotación:', e.message); } }
+}
+const reserved = (name) => !!OFFICIAL && (nrm(name).includes(nrm(OFFICIAL.name)) || /u2u(oficial|admin)|oficialu2u|administrador/.test(nrm(name)));
 
 /* ---------- cuenta de administrador (SOLO por variables de entorno) ----------
  * ADMIN_USER y ADMIN_PASS se leen únicamente del entorno del servidor: nunca están en el código ni en el HTML.
@@ -357,12 +382,13 @@ function mount(app) {
       const ipb = bucket('ip:' + ip(req), LOGIN_WINDOW);
       if (++ipb.n > IP_MAX) return tooMany(res, ipb);
       const d = req.body || {};
-      const id = clean(d.id, 254).toLowerCase(), pw = String(d.password || '').slice(0, 128);
+      const id = clean(d.id || d.email, 254).toLowerCase(), pw = String(d.password || '').slice(0, 128);
       if (!id || !pw) return res.status(400).json({ error: 'Completa usuario o correo y contraseña.' });
       const acc = bucket('acc:' + id, LOGIN_WINDOW);
       if (acc.n >= LOGIN_FAILS) return tooMany(res, acc); // cuenta bloqueada: ni siquiera se calcula el hash
 
-      const u = live(id.includes('@') ? byEmail.get(id) : byName.get(id));
+      let u = live(id.includes('@') ? byEmail.get(id) : byName.get(id));
+      if (u && !id.includes('@') && !u.admin && u.verified !== undefined) u = null; // con usuario solo entran las cuentas anteriores a la verificación y la oficial
       const ok = await checkPw(pw, u ? u.hash : await dummyHash());
       if (!u || !ok) {
         if (++acc.n >= LOGIN_FAILS) { acc.reset = Date.now() + LOGIN_WINDOW; return tooMany(res, acc); }
@@ -387,6 +413,98 @@ function mount(app) {
     const s = fromReq(req);
     if (s) { s.u.sessions = s.u.sessions.filter((x) => x.h !== s.h); bySess.delete(s.h); if (!s.u.admin) store.sessions.del(s.h); }
     res.json({ ok: true });
+  });
+
+  /* Mi cuenta: editar perfil (todo validado contra las listas del servidor) */
+  api.put('/me', async (req, res) => {
+    try {
+      const s = fromReq(req);
+      if (!s) return bad(res, 401, 'FORBIDDEN', 'Sesión no válida');
+      const u = s.u, d = req.body || {}, upd = {};
+      if (u.admin) return bad(res, 403, 'FORBIDDEN', 'La cuenta oficial se configura en el servidor.');
+      if (d.name !== undefined) {
+        const name = clean(d.name, 24);
+        if (name.length < 2) return bad(res, 400, 'INVALID', 'Escribe tu nombre (mínimo 2 letras).', 'name');
+        if (reserved(name)) return bad(res, 400, 'INVALID', 'Ese nombre está reservado para la cuenta oficial.', 'name');
+        upd.name = name;
+      }
+      if (d.career !== undefined || d.cycle !== undefined || d.campus !== undefined) {
+        if (!u.cond) return bad(res, 400, 'INVALID', 'Tu cuenta no tiene perfil UPC.');
+        if (d.career !== undefined) { if (!REG_CAREERS.includes(String(d.career))) return bad(res, 400, 'INVALID', 'Elige tu carrera (o «Otra»).', 'career'); upd.career = String(d.career); }
+        if (d.campus !== undefined) { if (!CAMPUSES.includes(String(d.campus))) return bad(res, 400, 'INVALID', 'Elige tu sede.', 'campus'); upd.campus = String(d.campus); }
+        if (d.cycle !== undefined) {
+          const cy = String(d.cycle).trim().replace(/^egresado$/i, 'Egresado');
+          if (!(u.cond === 'egresado' ? cy === 'Egresado' : CYCLES.includes(cy) || cy === 'Egresado')) return bad(res, 400, 'INVALID', 'Elige tu ciclo (1 a 10 o Egresado).', 'cycle');
+          upd.cycle = cy;
+        }
+      }
+      const newTerms = d.terms === true && (!u.terms || u.terms.version !== TERMS_VERSION); // acepta la versión vigente de los términos
+      if (!Object.keys(upd).length && !newTerms) return bad(res, 400, 'INVALID', 'No hay cambios que guardar.');
+      const before = { name: u.name, career: u.career, cycle: u.cycle, campus: u.campus, cond: u.cond, terms: u.terms };
+      Object.assign(u, upd);
+      if (upd.cycle === 'Egresado') u.cond = 'egresado';
+      if (newTerms) u.terms = { version: TERMS_VERSION, at: Date.now() };
+      try { await saveUser(u); } catch (e) { Object.assign(u, before); throw e; }
+      res.json({ ok: true, user: pub(u) });
+    } catch (e) { console.error('[auth] put me', e.message); res.status(500).json({ ok: false, error: 'Error del servidor. Intenta de nuevo.' }); }
+  });
+
+  /* Cambiar contraseña con sesión: pide la actual; rota el secret, revoca TODAS las sesiones y entrega una sesión nueva */
+  api.post('/me/password', async (req, res) => {
+    try {
+      const s = fromReq(req);
+      if (!s) return bad(res, 401, 'FORBIDDEN', 'Sesión no válida');
+      const u = s.u, d = req.body || {};
+      if (u.admin) return bad(res, 403, 'FORBIDDEN', 'La contraseña de la cuenta oficial se cambia en el servidor (ADMIN_PASS).');
+      const b = bucket('pw:' + u.uid, LOGIN_WINDOW);
+      if (++b.n > 10) return tooMany(res, b, true);
+      const pw = String(d.password || '');
+      if (!(await checkPw(String(d.current || '').slice(0, 128), u.hash))) return bad(res, 401, 'INVALID', 'La contraseña actual no es correcta.', 'current');
+      const why = pwProblem(pw, u.email);
+      if (why) return bad(res, 400, 'INVALID', why, 'password');
+      await applyPassword(u, pw);
+      res.json({ ok: true, token: await issue(u), user: pub(u) });
+    } catch (e) { console.error('[auth] password', e.message); res.status(500).json({ ok: false, error: 'Error del servidor. Intenta de nuevo.' }); }
+  });
+
+  /* Recuperar contraseña: mismos códigos, vencimiento y límites que el registro. La respuesta es IGUAL exista o no el correo
+     (y haya o no código vigente o intentos): nunca revela si una cuenta existe. */
+  api.post('/recover', async (req, res) => {
+    try {
+      const b = bucket('rc:' + ip(req), LOGIN_WINDOW);
+      if (++b.n > 30) return tooMany(res, b, true);
+      const email = parseUpcEmail((req.body || {}).email);
+      if (!email) return bad(res, 400, 'INVALID', 'Usa tu correo UPC (usuario@upc.edu.pe).', 'email');
+      const generic = () => res.json({ ok: true, expiresIn: CODE_MS / 1000, resendIn: RESEND_MS / 1000 });
+      const why = await emailBudget(email, ip(req)); // cuenta igual exista o no el correo
+      if (why === EMAIL_LIMIT_MSG) return generic();
+      if (why) return bad(res, 429, 'RATE_LIMIT', why);
+      const u = live(byEmail.get(email)), now = Date.now();
+      if (!u || u.admin || u.pending || (u.recover && now - u.recover.sentAt < RESEND_MS)) return generic();
+      const nv = newVerify(now), old = u.recover;
+      u.recover = nv.v;
+      try { await saveUser(u); } catch (e) { u.recover = old; throw e; }
+      await sendCode(u, nv.code, 'recover');
+      generic();
+    } catch (e) { console.error('[auth] recover', e.message); res.status(500).json({ ok: false, error: 'Error del servidor. Intenta de nuevo.' }); }
+  });
+  api.post('/recover/reset', async (req, res) => {
+    try {
+      const b = bucket('rr:' + ip(req), LOGIN_WINDOW);
+      if (++b.n > 30) return tooMany(res, b, true);
+      const d = req.body || {}, email = parseUpcEmail(d.email), code = String(d.code == null ? '' : d.code).replace(/\s/g, ''), pw = String(d.password || '');
+      if (!/^\d{6}$/.test(code)) return bad(res, 400, 'INVALID', 'El código tiene 6 dígitos.', 'code');
+      const why = pwProblem(pw, email);
+      if (why) return bad(res, 400, 'INVALID', why, 'password');
+      const noCode = () => bad(res, 400, 'CODE_INVALID', 'Código incorrecto o vencido. Pide uno nuevo.', 'code'); // un solo mensaje para todo
+      const u = email ? live(byEmail.get(email)) : null, r = u && u.recover;
+      if (!r || r.attempts >= CODE_MAX_FAILS || r.exp <= Date.now()) return noCode();
+      const want = Buffer.from(r.h), got = Buffer.from(codeHash(r.salt, code));
+      if (!(want.length === got.length && crypto.timingSafeEqual(want, got))) { r.attempts++; await saveUser(u); return noCode(); }
+      delete u.recover; // se consume ya (síncrono): un segundo envío con el mismo código no pasa
+      try { await applyPassword(u, pw); } catch (e) { u.recover = r; throw e; }
+      res.json({ ok: true });
+    } catch (e) { console.error('[auth] recover reset', e.message); res.status(500).json({ ok: false, error: 'Error del servidor. Intenta de nuevo.' }); }
   });
 
   /* REGISTRO_MANUAL: la cuenta oficial (admin) ve las pendientes y las aprueba (queda verificada y recibe la bienvenida) o las rechaza (se borra) */
@@ -450,5 +568,6 @@ module.exports = {
   mount, accountFor, check, getByUid, setBlocked, listBlocked, flush: () => store.flush(), official: () => OFFICIAL,
   onRegister: (fn) => { onReg = fn; },          // se llama al VERIFICAR la cuenta (no al crearla)
   isVerified, publicProfile, parseUpcEmail, sweep,
+  onSecretChange: (fn) => { onRot = fn; }, // se llama al rotar el secret (cambio o recuperación de contraseña)
   setMailer: (fn) => { if (typeof fn === 'function') mailer = fn; }, // bloque 6: proveedor real de correo
 };

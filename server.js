@@ -19,6 +19,8 @@
  *   Cada evento de Socket.io vuelve a comprobar cuenta, bloqueo y rol en el servidor (guard).
  * - v8.6.5 (bloque 5): cuentas nuevas con correo UPC sin verificar NO publican, reservan ni chatean (code NOT_VERIFIED);
  *   la bienvenida de la cuenta oficial se envía al VERIFICAR (auth.js llama a sendWelcome), no al crear la cuenta.
+ * - v8.6.7 (bloque 7): al cambiar o recuperar la contraseña se rota el secret y se desconectan los sockets de esa cuenta;
+ *   el nombre editado en «Mi cuenta» se usa en las publicaciones nuevas.
  */
 require('./env'); // variables de entorno: .env en tu PC, panel Environment en Render (ver env.js)
 
@@ -89,6 +91,7 @@ function guard(socket) {
   if (!acc) return { err: fail('ACCOUNT_DELETED', 'Tu cuenta ya no existe') };
   if (acc.blocked) { socket.emit('blocked'); socket.disconnect(true); return { err: fail('USER_BLOCKED', 'Tu cuenta fue bloqueada') }; }
   me.admin = acc.admin === true; // el rol no se arrastra: se recalcula de la cuenta en cada evento
+  me.name = acc.name; // nombre actual de la cuenta (puede cambiar en «Mi cuenta»)
   me.verified = accounts.isVerified(acc); // idem: cuentas nuevas sin verificar no publican, reservan ni chatean
   return { me, acc };
 }
@@ -544,6 +547,7 @@ async function boot(opt) {
   db.rows('convs').sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((c) => convs.set(c.key, c)); // chats guardados
   if (OFFICIAL) for (const p of products.values()) if (p.ownerUid === OFFICIAL.uid) { p.official = true; p.ownerName = OFFICIAL.name; }
   seedCatalog();                       // crea solo lo que falta (sin duplicar ni recrear lo eliminado)
+  accounts.onSecretChange((uid) => io.in('u:' + uid).disconnectSockets(true)); // secret rotado: fuera los sockets viejos
   accounts.onRegister(sendWelcome);    // bienvenida automática a cada cuenta al verificar su correo
   await refreshStorage(true);          // mide el espacio al arrancar y cada 10 min (solo con PostgreSQL)
   setInterval(() => refreshStorage(true), 10 * 60e3).unref();
