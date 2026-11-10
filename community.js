@@ -5,10 +5,12 @@
  *    (la regla vive en el servidor y se conserva aunque el reporte sea descartado o el servidor reinicie).
  * ADMIN
  *  - El rol lo decide SOLO el servidor (cuenta definida con ADMIN_USER / ADMIN_PASS en auth.js).
- *    Cada evento admin:* comprueba socket.data.admin, que sale de la cuenta y nunca del cliente.
+ *    Cada evento admin:* pasa por guard() (cuenta, bloqueo y rol salen de la cuenta, nunca del cliente).
  * RESEÑAS
  *  - Solo el comprador de un pedido con entrega confirmada con PIN (status "completed"), una por pedido.
  *  - Se guardan con db.js (PostgreSQL o archivos); el promedio se calcula en el servidor.
+ * v8.6.3 (bloque 3): ya no se recortan reportes ni publicaciones eliminadas por tope; eliminar, bloquear y reseñar
+ *  esperan a quedar guardados antes de confirmar.
  */
 const store = require('./db');
 
@@ -16,7 +18,7 @@ const REASONS = { obscena: 1, estafa: 1, falsa: 1, otro: 1 };
 const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, n);
 
 module.exports = function community(ctx) {
-  const { io, accounts, products, orders, removeProduct, cancelPending, pushOrder } = ctx;
+  const { io, accounts, products, orders, removeProduct, cancelPending, pushOrder, guard } = ctx;
 
   // Datos desde db.js (PostgreSQL o archivos). R/V conservan la misma forma que antes para no tocar la lógica.
   const R = {
@@ -34,6 +36,7 @@ module.exports = function community(ctx) {
   const removed = new Set(R.data.removed.map((x) => x.id));
   const byOrder = new Map(); // orderId -> reseña (una por pedido)
   const agg = new Map();     // sellerUid -> { sum, n }
+  const reviewing = new Set(); // pedidos con una reseña guardándose ahora mismo (evita duplicados)
 
   function addAgg(r) {
     byOrder.set(r.orderId, r);
@@ -49,7 +52,7 @@ module.exports = function community(ctx) {
   };
   const allRatings = () => { const o = {}; for (const uid of agg.keys()) o[uid] = rating(uid); return o; };
 
-  // límite por usuario y tipo de acción (se guarda en socket.data)
+  // límite por usuario y tipo de acción (los contadores viven en el usuario, ver quotaOf en server.js)
   const hit = (me, key, max, ms) => {
     const now = Date.now();
     me[key] = (me[key] || []).filter((t) => now - t < ms);
@@ -57,13 +60,14 @@ module.exports = function community(ctx) {
     me[key].push(now);
     return true;
   };
+  // Marca una publicación como eliminada por moderación (bloquea re-publicarla). Nunca se recorta: resuelve true/false al guardarse.
   const markRemoved = (pid, uid) => {
-    if (removed.has(pid)) return;
+    if (removed.has(pid)) return Promise.resolve(true);
     removed.add(pid);
     R.data.removed.push({ id: pid, uid: uid || '' });
-    store.removed.put({ pid, uid: uid || '' });
-    if (R.data.removed.length > 5000) { const old = R.data.removed.shift(); removed.delete(old.id); store.removed.del(old.id); }
+    return store.removed.put({ pid, uid: uid || '' }, { sync: true }).then(() => true, (e) => { console.error('[community] no se pudo guardar la moderación:', e.message); return false; });
   };
+  const saveUser = (u) => { const { sessions, ...row } = u; return store.users.put(row, { sync: true }); }; // bloqueos: se confirman al guardarse
 
   /* ---------- vista del panel admin ---------- */
   function adminView() {
@@ -80,21 +84,16 @@ module.exports = function community(ctx) {
     R.data.reports.forEach((r) => {
       if (r.status === 'open' && match(r)) { r.status = status; r.resolution = resolution; r.resolvedAt = now; r.resolvedBy = by; store.reports.put(r); n++; }
     });
-    if (R.data.reports.length > 3000) { // recorte: se descartan los resueltos más antiguos
-      let extra = R.data.reports.length - 3000;
-      R.data.reports = R.data.reports.filter((r) => { const drop = extra > 0 && r.status !== 'open' && extra--; if (drop) store.reports.del(r.id); return !drop; });
-    }
-    R.save();
-    return n;
+    return n; // los reportes resueltos se conservan (no hay recorte por tope)
   }
 
-  // Solo el admin (decidido por el servidor) pasa este filtro
+  // Solo el admin (decidido por el servidor) pasa este filtro: cuenta existente, no bloqueada y con rol admin
   const asAdmin = (socket, ack, fn) => {
     const reply = (o) => typeof ack === 'function' && ack(o);
-    const me = socket.data;
-    const acc = me && me.uid ? accounts.getByUid(me.uid) : null;
-    if (!me || !me.admin || !acc || acc.admin !== true) return reply({ error: 'No autorizado' });
-    try { fn(reply, me); } catch (e) { console.error('[admin]', e.message); reply({ error: 'Error del servidor' }); }
+    const g = guard(socket);
+    if (g.err) return reply(g.err);
+    if (!g.me.admin || g.acc.admin !== true) return reply({ ok: false, code: 'FORBIDDEN', error: 'No autorizado' });
+    Promise.resolve().then(() => fn(reply, g.me)).catch((e) => { console.error('[admin]', e.message); reply({ error: 'Error del servidor' }); });
   };
 
   return {
@@ -114,8 +113,9 @@ module.exports = function community(ctx) {
       /* ----- Reportar publicación ----- */
       socket.on('report:create', (d, ack) => {
         const reply = (o) => typeof ack === 'function' && ack(o);
-        const me = socket.data;
-        if (!me || !me.uid) return reply({ error: 'Primero entra con tu cuenta' });
+        const g = guard(socket);
+        if (g.err) return reply(g.err);
+        const me = g.me;
         if (me.admin) return reply({ error: 'La cuenta oficial no reporta: modera desde el panel' });
         d = d || {};
         if (!hit(me, 'rpts', 10, 10 * 60e3)) return reply({ error: 'Has enviado muchos reportes seguidos. Espera unos minutos' });
@@ -145,17 +145,16 @@ module.exports = function community(ctx) {
       /* ----- Acciones del administrador ----- */
       socket.on('admin:reports', (_d, ack) => asAdmin(socket, ack, (reply) => reply({ ok: true, ...adminView() })));
 
-      // Eliminar publicación: desaparece al instante para todos y resuelve sus reportes
-      socket.on('admin:delete', (d, ack) => asAdmin(socket, ack, (reply, me) => {
+      // Eliminar publicación: desaparece al instante para todos y resuelve sus reportes (la fila se conserva, ver removeProduct)
+      socket.on('admin:delete', (d, ack) => asAdmin(socket, ack, async (reply, me) => {
         const pid = parseInt((d || {}).pid, 10);
         if (!pid) return reply({ error: 'Publicación no válida' });
         const p = products.get(pid);
         const rep = R.data.reports.find((r) => r.pid === pid);
         if (!p && !rep) return reply({ error: 'Publicación no encontrada' });
-        removeProduct(pid);
-        markRemoved(pid, p ? p.ownerUid : rep.ownerUid);
+        await removeProduct(pid);
+        if (!(await markRemoved(pid, p ? p.ownerUid : rep.ownerUid))) return reply({ error: 'No se pudo guardar la eliminación. Inténtalo de nuevo.' });
         resolve((r) => r.pid === pid, 'actioned', 'deleted', me.name);
-        R.save();
         pushAdmin();
         reply({ ok: true });
       }));
@@ -170,35 +169,39 @@ module.exports = function community(ctx) {
       }));
 
       // Bloquear usuario: no puede iniciar sesión, se cierran sus conexiones y se eliminan sus publicaciones
-      socket.on('admin:block', (d, ack) => asAdmin(socket, ack, (reply, me) => {
+      socket.on('admin:block', (d, ack) => asAdmin(socket, ack, async (reply, me) => {
         const uid = String((d || {}).uid || '');
         const u = accounts.getByUid(uid);
         if (!u) return reply({ error: 'Usuario no encontrado' });
         if (u.admin) return reply({ error: 'No puedes bloquear al administrador' });
         accounts.setBlocked(uid, true);
-        [...products.values()].filter((p) => p.ownerUid === uid).forEach((p) => { removeProduct(p.id); markRemoved(p.id, uid); });
-        cancelPending((o) => o.buyerId === uid || o.ownerId === uid);
-        resolve((r) => r.ownerUid === uid, 'actioned', 'blocked', me.name);
-        R.save();
+        try { await saveUser(u); } catch (e) { console.error('[community] no se pudo guardar el bloqueo:', e.message); return reply({ error: 'No se pudo guardar el bloqueo. Inténtalo de nuevo.' }); }
         io.in('u:' + uid).emit('blocked');
-        io.in('u:' + uid).disconnectSockets(true);
+        io.in('u:' + uid).disconnectSockets(true); // desde aquí ya no puede actuar (guard también lo comprueba en cada evento)
+        const mine = [...products.values()].filter((p) => p.ownerUid === uid);
+        await Promise.all(mine.map(async (p) => { await removeProduct(p.id); await markRemoved(p.id, uid); }));
+        await cancelPending((o) => o.buyerId === uid || o.ownerId === uid);
+        resolve((r) => r.ownerUid === uid, 'actioned', 'blocked', me.name);
         pushAdmin();
         reply({ ok: true });
       }));
 
-      socket.on('admin:unblock', (d, ack) => asAdmin(socket, ack, (reply) => {
+      socket.on('admin:unblock', (d, ack) => asAdmin(socket, ack, async (reply) => {
         const uid = String((d || {}).uid || '');
-        if (!accounts.getByUid(uid)) return reply({ error: 'Usuario no encontrado' });
+        const u = accounts.getByUid(uid);
+        if (!u || u.admin) return reply({ error: 'Usuario no encontrado' });
         accounts.setBlocked(uid, false);
+        try { await saveUser(u); } catch (e) { console.error('[community] no se pudo guardar el desbloqueo:', e.message); return reply({ error: 'No se pudo guardar el desbloqueo. Inténtalo de nuevo.' }); }
         pushAdmin();
         reply({ ok: true });
       }));
 
       /* ----- Reseñas verificadas ----- */
-      socket.on('review:create', (d, ack) => {
+      socket.on('review:create', async (d, ack) => {
         const reply = (o) => typeof ack === 'function' && ack(o);
-        const me = socket.data;
-        if (!me || !me.uid) return reply({ error: 'Primero entra con tu cuenta' });
+        const g = guard(socket);
+        if (g.err) return reply(g.err);
+        const me = g.me;
         d = d || {};
         if (!hit(me, 'rvs', 10, 10 * 60e3)) return reply({ error: 'Demasiadas reseñas seguidas. Espera unos minutos' });
 
@@ -206,7 +209,7 @@ module.exports = function community(ctx) {
         if (o && o.ownerId === me.uid) return reply({ error: 'No puedes calificarte a ti mismo' });
         if (!o || o.buyerId !== me.uid) return reply({ error: 'Pedido no encontrado' });
         if (o.status !== 'completed') return reply({ error: 'Solo puedes calificar cuando la entrega ya se confirmó con el código' });
-        if (byOrder.has(o.id)) return reply({ error: 'Ya calificaste este pedido' });
+        if (byOrder.has(o.id) || reviewing.has(o.id)) return reply({ error: 'Ya calificaste este pedido' });
         const stars = Math.round(Number(d.rating));
         if (!(stars >= 1 && stars <= 5)) return reply({ error: 'Elige de 1 a 5 estrellas' });
 
@@ -216,9 +219,14 @@ module.exports = function community(ctx) {
           sellerUid: o.ownerId, sellerName: o.ownerName, buyerUid: me.uid, buyerName: me.name,
           rating: stars, text: clean(d.text, 300), ts: Date.now(),
         };
+        reviewing.add(o.id);
+        try { await store.reviews.put(r, { sync: true }); } // la reseña cuenta solo cuando ya quedó guardada
+        catch (e) {
+          console.error('[community] no se pudo guardar la reseña:', e.message);
+          return reply({ ok: false, error: 'No se pudo guardar tu reseña. Inténtalo de nuevo.' });
+        } finally { reviewing.delete(o.id); }
         V.data.reviews.push(r);
         addAgg(r);
-        store.reviews.put(r);
         pushOrder(o); // ambos ven el pedido como "reseña enviada"
         io.emit('rating', { uid: o.ownerId, ...rating(o.ownerId) });
         io.to('u:' + o.ownerId).emit('review:new', { from: me.name, rating: stars });
@@ -227,8 +235,9 @@ module.exports = function community(ctx) {
 
       socket.on('reviews:get', (d, ack) => {
         const reply = (o) => typeof ack === 'function' && ack(o);
-        const me = socket.data;
-        if (!me || !me.uid) return reply({ error: 'Primero entra con tu cuenta' });
+        const g = guard(socket);
+        if (g.err) return reply(g.err);
+        const me = g.me;
         if (!hit(me, 'rvg', 40, 60e3)) return reply({ error: 'Vas muy rápido, espera un momento' });
         const uid = String((d || {}).uid || '');
         const list = V.data.reviews.filter((r) => r.sellerUid === uid).slice(-50).reverse()

@@ -1,6 +1,6 @@
 {
   "name": "u2u-live",
-  "version": "8.6.2",
+  "version": "8.6.4",
   "description": "U2U - marketplace universitario en tiempo real (publicaciones, chat privado y entrega con código)",
   "main": "server.js",
   "scripts": {
