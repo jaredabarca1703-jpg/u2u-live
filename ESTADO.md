@@ -1,4 +1,3 @@
-[ESTADO.md](https://github.com/user-attachments/files/34655672/ESTADO.md)
 ESTADO · versión 8.6.8
 Terminados: [1 ✅, 2 ✅ (sin verificar jsdom en Actions), 3 ✅ (falta Actions), 4 ✅ (sin verificar en navegador real), 5 ✅ (6 pruebas; falta Actions), 6 ✅ (6 pruebas; envío a Brevo probado solo con fetch simulado), 7 ✅ (6 pruebas; 21/21 en total; falta Actions), 8 ✅ (node --check + 42 pruebas con DOM y fetch simulados, 2 mutaciones detectadas; SIN probar en navegador real ni iPhone), 9 a 30 ❌]
 En curso: ninguno
