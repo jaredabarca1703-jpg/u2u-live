@@ -13,7 +13,7 @@ function sellerIdx(uid,name,cp,off){if(LV.me&&uid==LV.me.uid)return ME;let i=RS[
  else{SEL[i].n=name;SEL[i].cp=cp;if(off)SEL[i].official=true}return i}
 function addRemote(d){if(!d||!d.id)return false;const ex=P(d.id);
  if(ex){if(d.status&&ex.status!=d.status){ex.status=d.status;return true}return false}
- const s=sellerIdx(d.ownerUid,d.ownerName,d.cp,d.official),mine=s==ME;if(mine)SEL[ME].cp=d.cp;
+ const s=sellerIdx(d.ownerUid,d.ownerName,d.cp,d.official),mine=s==ME;if(mine)SEL[ME].cp=d.cp;else if(d.ownerProfile)SEL[s].prof=d.ownerProfile;
  PR.unshift({id:d.id,t:d.t,ph:d.ph,cat:d.cat,mode:d.mode,price:d.price,rent:d.rent,dep:d.dep,cond:d.cond,car:d.car||[],official:!!d.official,status:d.status||'available',d:mine?0.3:+(DK[d.cp]+((d.id*13)%9)/10).toFixed(1),s,x:50,y:44,ts:99,desc:d.desc,e:'📦',own:d.ownerUid,remote:!mine});
  return true}
 function refreshCatalog(){if(S.s=='home')gridR();else if(S.s=='map'||S.s=='sedes')R(1)}

@@ -63,5 +63,3 @@ const SEEN_K='u2useen',seenGet=()=>{try{return JSON.parse(localStorage.getItem(S
 function seenSet(k){const s=seenGet();s[k]=Date.now();const ks=Object.keys(s);if(ks.length>300)delete s[ks[0]];try{localStorage.setItem(SEEN_K,JSON.stringify(s))}catch(e){}}
 function unSeen(c){const s=seenGet()[c.key];if(s===undefined)return(c.welcome&&c.buyerId==LV.me.uid)?1:0;return c.msgs.filter(m=>m.uid!=LV.me.uid&&m.ts>s).length}
 function offList(){const l=PR.filter(p=>p.official).sort((a,b)=>b.id-a.id);return l.length?l.map(p=>`<div class="border rounded-2xl p-3 mb-3 flex gap-3 items-center"><div class="w-14 h-14 rounded-xl overflow-hidden shrink-0">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm truncate">${esc(p.t)}</p><p class="text-xs text-slate-500">${price(p)}${p.status=='sold'?' · Vendido':p.status=='reserved'?' · Reservado':''}</p></div><button class="chip" onclick="admView(${p.id})">Ver</button><button class="chip !bg-red-50 !text-red-600" onclick="admDelete(${p.id})">Eliminar</button></div>`).join(''):empty('package','Sin productos oficiales','Se crean desde seed.json al iniciar el servidor.')}
-
-bootInit();
