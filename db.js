@@ -7,6 +7,8 @@
  *  - v8.6.3 (bloque 3): put({sync:true}) también garantiza escritura inmediata en modo archivos, y las tablas
  *    con datos de la comunidad (products, orders, convs, reviews, reports, removed) NO admiten del():
  *    se marcan con put({deleted_at, ...}). El aviso de espacio lo da server.js (STORAGE_LIMIT_MB).
+ *  - v8.6.6 (bloque 6): tabla counters (key text PK, window text, count int) con UPSERT atómico: counters.hit(key, window)
+ *    suma 1 y devuelve el conteo de esa ventana (si la ventana cambió, reinicia en 1). Límites de correo (auth.js).
  */
 const fs = require('fs');
 const path = require('path');
@@ -155,6 +157,7 @@ async function init() {
       for (const [i, u] of (s.uniq || []).entries()) await q('CREATE UNIQUE INDEX IF NOT EXISTS ' + t + '_u' + i + ' ON ' + t + '(' + u.join(',') + ')');
       for (const c of s.idx || []) await q('CREATE INDEX IF NOT EXISTS ' + t + '_' + c + ' ON ' + t + '(' + c + ')');
     }
+    await q('CREATE TABLE IF NOT EXISTS counters (key text PRIMARY KEY, window text NOT NULL, count int NOT NULL)');
     await q('DELETE FROM sessions WHERE exp < $1', [Date.now()]); // sesiones vencidas
     for (const t of names) initial[t] = (await q('SELECT data FROM ' + t)).rows.map((r) => r.data);
     console.log('[db] PostgreSQL conectado · ' + initial.users.length + ' cuentas, ' + initial.products.length + ' publicaciones, ' + initial.orders.length + ' pedidos');
@@ -162,6 +165,8 @@ async function init() {
   } else {
     initial = readFiles();
     names.forEach((t) => { mem[t] = new Map(initial[t].map((d) => [String(d[KEY[t]]), d])); });
+    const cj = readJson(fileOf('counters')); // contadores (límites de correo): key -> { key, window, count }
+    mem.counters = new Map(((cj && Array.isArray(cj.rows)) ? cj.rows : []).map((r) => [r.key, r]));
     const now = Date.now();
     for (const [h, s] of mem.sessions) if (s.exp < now) mem.sessions.delete(h);
     initial.sessions = [...mem.sessions.values()];
@@ -206,6 +211,21 @@ api.sessions.delByUid = (uid) => {
   if (MODE === 'file') { for (const [h, s] of mem.sessions) if (s.uid === uid) mem.sessions.delete(h); fileMark('sessions'); return; }
   for (const [k, e] of pend) if (e.t === 'sessions' && e.doc && e.doc.uid === uid) pend.delete(k);
   q('DELETE FROM sessions WHERE uid=$1', [uid]).catch((e) => console.error('[db] sesiones:', e.message));
+};
+/* Contadores por ventana (límites de envío de correo). Una sola sentencia atómica en PostgreSQL; en archivos
+   no hay concurrencia real (un proceso, sin await entre leer y escribir). Devuelve el conteo tras sumar 1. */
+api.counters = {
+  async hit(key, win) {
+    key = String(key); win = String(win);
+    if (MODE === 'file') {
+      let r = mem.counters.get(key);
+      if (!r || r.window !== win) { r = { key, window: win, count: 0 }; mem.counters.set(key, r); }
+      r.count++; fileMark('counters');
+      return r.count;
+    }
+    const res = await q('INSERT INTO counters(key,window,count) VALUES($1,$2,1) ON CONFLICT (key) DO UPDATE SET count = CASE WHEN counters.window = EXCLUDED.window THEN counters.count + 1 ELSE 1 END, window = EXCLUDED.window RETURNING count', [key, win]);
+    return Number(res.rows[0].count);
+  },
 };
 /* usado por migrate.js: sube filas (idempotente) */
 api.importRows = async (t, rows) => { for (const d of rows) await q(sqlUpsert(t), upsertArgs(t, d)); return rows.length; };
