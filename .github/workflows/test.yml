@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest   # runner estandar: gratis en repos publicos
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22   # misma version que "engines" de package.json
+          cache: npm
+      # npm ci es lo estricto; si package-lock.json aun no incluye jsdom (bloque 2), cae a npm install
+      - run: npm ci || npm install --no-audit --no-fund
+      - name: Detectar si package-lock.json cambio
+        run: git diff --quiet package-lock.json || echo "LOCK_CHANGED=1" >> "$GITHUB_ENV"
+      - name: Guardar package-lock.json actualizado (descargalo y subelo al repo)
+        if: env.LOCK_CHANGED == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json
+          retention-days: 7
+      - run: npm run check
+      - run: npm test
