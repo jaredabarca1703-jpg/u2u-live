@@ -17,6 +17,8 @@
  *   Tope por usuario (PUB_LIMIT_USER) y tope de espacio (STORAGE_LIMIT_MB) solo RECHAZAN lo nuevo.
  *   Las escrituras críticas (publicar, pedidos, reservas, bloqueos, reseñas) esperan a quedar guardadas antes de confirmar.
  *   Cada evento de Socket.io vuelve a comprobar cuenta, bloqueo y rol en el servidor (guard).
+ * - v8.6.5 (bloque 5): cuentas nuevas con correo UPC sin verificar NO publican, reservan ni chatean (code NOT_VERIFIED);
+ *   la bienvenida de la cuenta oficial se envía al VERIFICAR (auth.js llama a sendWelcome), no al crear la cuenta.
  */
 require('./env'); // variables de entorno: .env en tu PC, panel Environment en Render (ver env.js)
 
@@ -69,6 +71,7 @@ const presence = () => {
 };
 const num = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
 const fail = (code, error) => ({ ok: false, code, error });
+const notVerified = () => fail('NOT_VERIFIED', 'Verifica tu correo UPC para publicar, reservar o chatear.');
 function quotaOf(uid) {
   let q = quotas.get(uid);
   if (!q) {
@@ -86,6 +89,7 @@ function guard(socket) {
   if (!acc) return { err: fail('ACCOUNT_DELETED', 'Tu cuenta ya no existe') };
   if (acc.blocked) { socket.emit('blocked'); socket.disconnect(true); return { err: fail('USER_BLOCKED', 'Tu cuenta fue bloqueada') }; }
   me.admin = acc.admin === true; // el rol no se arrastra: se recalcula de la cuenta en cada evento
+  me.verified = accounts.isVerified(acc); // idem: cuentas nuevas sin verificar no publican, reservan ni chatean
   return { me, acc };
 }
 
@@ -152,6 +156,7 @@ const activeCount = (uid) => { let n = 0; for (const p of products.values()) if 
 /* Publicar: validación + topes + guardado. La comprobación y el registro en memoria son síncronos (sin await entre medio);
    la respuesta de éxito solo sale cuando la publicación ya quedó guardada. Devuelve { res: ack, p?: publicación nueva }. */
 async function publish(me, d) {
+  if (me.verified === false) return { res: notVerified() };
   const r = cleanProduct(d, me);
   if (r.error) return { res: { ok: false, error: r.error } };
   const p = r.p;
@@ -305,6 +310,7 @@ io.on('connection', (socket) => {
     const g = guard(socket);
     if (g.err) return reply(g.err);
     const me = g.me;
+    if (me.verified === false) return reply(notVerified());
     d = d || {};
 
     const text = String(d.text || '').trim().slice(0, 500);
@@ -361,6 +367,7 @@ io.on('connection', (socket) => {
     const me = g.me;
     d = d || {};
 
+    if (me.verified === false) return reply(notVerified());
     if (me.admin) return reply({ error: 'La cuenta oficial vende y modera: no compra ni alquila' });
     const now = Date.now();
     me.ords = (me.ords || []).filter((t) => now - t < 60000);
@@ -508,7 +515,7 @@ function seedCatalog() {
   });
   console.log('[seed] catálogo oficial: ' + made + ' creados · ' + had + ' ya existían · ' + gone + ' eliminados desde el panel (no se recrean)');
 }
-// Al registrarse, la cuenta oficial le escribe un mensaje de bienvenida (chat directo, pid 0)
+// Al VERIFICAR su correo (auth.js → onRegister), la cuenta oficial le escribe un mensaje de bienvenida (chat directo, pid 0)
 function sendWelcome(u) {
   if (!OFFICIAL || u.admin) return;
   const key = '0|' + u.uid;
@@ -537,7 +544,7 @@ async function boot(opt) {
   db.rows('convs').sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((c) => convs.set(c.key, c)); // chats guardados
   if (OFFICIAL) for (const p of products.values()) if (p.ownerUid === OFFICIAL.uid) { p.official = true; p.ownerName = OFFICIAL.name; }
   seedCatalog();                       // crea solo lo que falta (sin duplicar ni recrear lo eliminado)
-  accounts.onRegister(sendWelcome);    // bienvenida automática a cada cuenta nueva
+  accounts.onRegister(sendWelcome);    // bienvenida automática a cada cuenta al verificar su correo
   await refreshStorage(true);          // mide el espacio al arrancar y cada 10 min (solo con PostgreSQL)
   setInterval(() => refreshStorage(true), 10 * 60e3).unref();
   if (opt.listen !== false) server.listen(PORT, () => console.log('U2U en vivo escuchando en el puerto ' + PORT));
