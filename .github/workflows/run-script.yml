@@ -1,0 +1,60 @@
+name: run-script
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Nombre del script en scripts/ SIN ruta ni .js (ej: 09-migrar-fotos)'
+        required: true
+        type: string
+      modo:
+        description: 'dry-run no cambia nada; apply escribe en la base'
+        required: true
+        type: choice
+        options: [dry-run, apply]
+        default: dry-run
+      entorno:
+        description: 'dev = rama de pruebas de Neon; prod = production'
+        required: true
+        type: choice
+        options: [dev, prod]
+        default: dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: run-script
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest   # runner estandar: gratis en repos publicos
+    timeout-minutes: 15
+    env:
+      SCRIPT: ${{ inputs.script }}
+      MODO: ${{ inputs.modo }}
+      ENTORNO: ${{ inputs.entorno }}
+      DATABASE_URL: ${{ inputs.entorno == 'prod' && secrets.DATABASE_URL_PROD || secrets.DATABASE_URL_DEV }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev || npm install --omit=dev --no-audit --no-fund
+      - name: Validar entradas
+        run: |
+          if ! printf '%s' "$SCRIPT" | grep -Eq '^[a-z0-9][a-z0-9_-]{0,60}$'; then
+            echo "Nombre de script no valido (solo minusculas, numeros, - y _)."; exit 1
+          fi
+          if [ ! -f "scripts/$SCRIPT.js" ]; then
+            echo "No existe scripts/$SCRIPT.js en esta rama."; exit 1
+          fi
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Falta el secreto DATABASE_URL_$(printf '%s' "$ENTORNO" | tr a-z A-Z) en GitHub."; exit 1
+          fi
+          echo "Script: $SCRIPT | modo: $MODO | entorno: $ENTORNO | rama: $GITHUB_REF_NAME"
+      - name: Ejecutar (el script imprime solo conteos)
+        run: |
+          if [ "$MODO" = "apply" ]; then node "scripts/$SCRIPT.js" --apply; else node "scripts/$SCRIPT.js" --dry-run; fi
