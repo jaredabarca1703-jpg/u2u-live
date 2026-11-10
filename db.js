@@ -157,7 +157,7 @@ async function init() {
       for (const [i, u] of (s.uniq || []).entries()) await q('CREATE UNIQUE INDEX IF NOT EXISTS ' + t + '_u' + i + ' ON ' + t + '(' + u.join(',') + ')');
       for (const c of s.idx || []) await q('CREATE INDEX IF NOT EXISTS ' + t + '_' + c + ' ON ' + t + '(' + c + ')');
     }
-    await q('CREATE TABLE IF NOT EXISTS counters (key text PRIMARY KEY, window text NOT NULL, count int NOT NULL)');
+    await q('CREATE TABLE IF NOT EXISTS counters (key text PRIMARY KEY, win text NOT NULL, count int NOT NULL)');
     await q('DELETE FROM sessions WHERE exp < $1', [Date.now()]); // sesiones vencidas
     for (const t of names) initial[t] = (await q('SELECT data FROM ' + t)).rows.map((r) => r.data);
     console.log('[db] PostgreSQL conectado · ' + initial.users.length + ' cuentas, ' + initial.products.length + ' publicaciones, ' + initial.orders.length + ' pedidos');
@@ -219,11 +219,11 @@ api.counters = {
     key = String(key); win = String(win);
     if (MODE === 'file') {
       let r = mem.counters.get(key);
-      if (!r || r.window !== win) { r = { key, window: win, count: 0 }; mem.counters.set(key, r); }
+if (!r || r.win !== win) { r = { key, win: win, count: 0 }; mem.counters.set(key, r); }
       r.count++; fileMark('counters');
       return r.count;
     }
-    const res = await q('INSERT INTO counters(key,window,count) VALUES($1,$2,1) ON CONFLICT (key) DO UPDATE SET count = CASE WHEN counters.window = EXCLUDED.window THEN counters.count + 1 ELSE 1 END, window = EXCLUDED.window RETURNING count', [key, win]);
+    const res = await q('INSERT INTO counters(key,win,count) VALUES($1,$2,1) ON CONFLICT (key) DO UPDATE SET count = CASE WHEN counters.win = EXCLUDED.win THEN counters.count + 1 ELSE 1 END, win = EXCLUDED.win RETURNING count', [key, win]);
     return Number(res.rows[0].count);
   },
 };
