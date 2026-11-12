@@ -22,7 +22,7 @@ function pinModal(o){M(`<div class="bg-white w-full rounded-t-3xl p-7 text-cente
 function onOrder(o){if(!LV.me)return;const old=LV.orders[o.id];LV.orders[o.id]=o;const me=LV.me.uid;
  if(!old&&o.ownerId==me)toast('🛒 '+o.buyerName+' quiere '+(o.mode=='compra'?'comprar':'alquilar')+': '+String(o.t).slice(0,26));
  else if(old&&old.status=='pending'&&o.status=='completed')showDone(o);
- else if(old&&old.status=='pending'&&o.status=='cancelled')toast('Pedido cancelado: '+String(o.t).slice(0,30));
+ else if(old&&old.status=='pending'&&o.status=='cancelled')toast((o.cancelledBy=='timeout'?'Pedido vencido: ':'Pedido cancelado: ')+String(o.t).slice(0,30));
  else if(old&&!old.locked&&o.locked&&o.ownerId==me)toast('Pedido bloqueado 5 min por intentos fallidos');
  if(['msgs','profile','detail'].includes(S.s))R(1);navDot()}
 function showDone(o){const buyer=o.buyerId==LV.me.uid,k=o.mode=='compra'?'compra':'alquiler';

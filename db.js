@@ -7,6 +7,8 @@
  *  - v8.6.3 (bloque 3): put({sync:true}) también garantiza escritura inmediata en modo archivos, y las tablas
  *    con datos de la comunidad (products, orders, convs, reviews, reports, removed) NO admiten del():
  *    se marcan con put({deleted_at, ...}). El aviso de espacio lo da server.js (STORAGE_LIMIT_MB).
+ *  - v8.7.0: tabla messages (una fila por mensaje de chat: id, key de la conversación, uid, from, name, text, ts) y putMany(docs):
+ *    guarda varias filas en UNA transacción (PostgreSQL) o con una sola escritura de archivo. messages tampoco admite del().
  *  - v8.6.6 (bloque 6): tabla counters (key text PK, window text, count int) con UPSERT atómico: counters.hit(key, window)
  *    suma 1 y devuelve el conteo de esa ventana (si la ventana cambió, reinicia en 1). Límites de correo (auth.js).
  */
@@ -26,10 +28,11 @@ const T = {
   reports: { kt: 'text', cols: { pid: ['bigint', (d) => d.pid], reporter_uid: ['text', (d) => d.reporterUid], ts: ['bigint', (d) => d.ts] }, uniq: [['pid', 'reporter_uid']] },
   reviews: { kt: 'text', cols: { order_id: ['text', (d) => d.orderId], seller_uid: ['text', (d) => d.sellerUid], ts: ['bigint', (d) => d.ts] }, uniq: [['order_id']], idx: ['seller_uid'] },
   removed: { kt: 'bigint', cols: { uid: ['text', (d) => d.uid || ''] } },
-  convs: { kt: 'text', cols: { buyer_id: ['text', (d) => d.buyerId], pid: ['bigint', (d) => d.pid], ts: ['bigint', (d) => d.ts || 0] }, idx: ['buyer_id'] }, // chats
+  convs: { kt: 'text', cols: { buyer_id: ['text', (d) => d.buyerId], pid: ['bigint', (d) => d.pid], ts: ['bigint', (d) => d.ts || 0] }, idx: ['buyer_id'] }, // chats (sin los mensajes desde v8.7.0)
+  messages: { kt: 'text', cols: { conv_key: ['text', (d) => d.key], ts: ['bigint', (d) => d.ts || 0] }, idx: ['conv_key'] }, // una fila por mensaje
 };
-const KEY = { users: 'uid', sessions: 'h', products: 'id', orders: 'id', reports: 'id', reviews: 'id', removed: 'pid', convs: 'key' };
-const NO_DEL = new Set(['products', 'orders', 'convs', 'reviews', 'reports', 'removed']); // datos de la comunidad: nunca se borran
+const KEY = { users: 'uid', sessions: 'h', products: 'id', orders: 'id', reports: 'id', reviews: 'id', removed: 'pid', convs: 'key', messages: 'id' };
+const NO_DEL = new Set(['products', 'orders', 'convs', 'messages', 'reviews', 'reports', 'removed']); // datos de la comunidad: nunca se borran
 const names = Object.keys(T);
 
 let pool = null;
@@ -196,6 +199,24 @@ function table(t) {
       }
       if (opt && opt.sync) { pend.delete(t + '|' + k); await q(sqlUpsert(t), upsertArgs(t, doc)); return; }
       enqueue(t, k, doc);
+    },
+    /* guarda varias filas juntas: en PostgreSQL una sola transacción (todo o nada); en archivos una sola escritura. Espera a que quede guardado. */
+    async putMany(docs) {
+      if (!docs || !docs.length) return;
+      if (MODE === 'file') {
+        docs.forEach((d) => mem[t].set(String(d[key]), d));
+        dirty.add(t); fileFlush();
+        if (dirty.has(t)) throw new Error('no se pudo escribir ' + t);
+        return;
+      }
+      docs.forEach((d) => pend.delete(t + '|' + String(d[key])));
+      const c = await pool.connect();
+      try {
+        await c.query('BEGIN');
+        for (const d of docs) await q(sqlUpsert(t), upsertArgs(t, d), c);
+        await c.query('COMMIT');
+      } catch (e) { try { await c.query('ROLLBACK'); } catch (_) {} throw e; }
+      finally { c.release(); }
     },
     del(k) {
       if (NO_DEL.has(t)) { console.error('[db] borrado bloqueado en ' + t + ': usa put({deleted_at, ...}). No se borró nada.'); return; }

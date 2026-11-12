@@ -19,6 +19,10 @@
  *   Cada evento de Socket.io vuelve a comprobar cuenta, bloqueo y rol en el servidor (guard).
  * - v8.6.5 (bloque 5): cuentas nuevas con correo UPC sin verificar NO publican, reservan ni chatean (code NOT_VERIFIED);
  *   la bienvenida de la cuenta oficial se envía al VERIFICAR (auth.js llama a sendWelcome), no al crear la cuenta.
+ * - v8.7.0 (parche de prioridad alta): (1) el catálogo ya NO manda las fotos en base64 por Socket.io: cada foto se sirve por
+ *   GET /foto/:pid/:n con caché del navegador y el catálogo solo lleva esa URL; (2) los pedidos pendientes vencen a las
+ *   ORDER_TTL_HOURS (48 h por defecto) y liberan la reserva; (3) cada mensaje del chat es una fila de la tabla messages y solo se
+ *   entrega y confirma cuando quedó guardado (las conversaciones antiguas se migran solas al iniciar).
  * - v8.6.7 (bloque 7): al cambiar o recuperar la contraseña se rota el secret y se desconectan los sockets de esa cuenta;
  *   el nombre editado en «Mi cuenta» se usa en las publicaciones nuevas.
  */
@@ -40,6 +44,17 @@ const io = new Server(server, { maxHttpBufferSize: 1e6 }); // 1 MB por mensaje (
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
+// Foto de una publicación: se descarga solo cuando la pantalla la necesita y el navegador la guarda (ids nunca se reutilizan: caché larga + ETag)
+app.get('/foto/:pid/:n', (req, res) => {
+  const p = products.get(parseInt(req.params.pid, 10)), n = parseInt(req.params.n, 10);
+  const f = p && Number.isInteger(n) && n >= 0 ? p.ph[n] : null;
+  const m = isData(f) ? DATA_IMG.exec(f) : null;
+  if (!m) return res.status(404).end();
+  const etag = 'W/"' + p.id + '-' + n + '-' + f.length + '"';
+  res.set({ ETag: etag, 'Cache-Control': 'public, max-age=604800, immutable', 'X-Content-Type-Options': 'nosniff' });
+  if (req.headers['if-none-match'] === etag) return res.status(304).end();
+  res.type(m[1]).send(Buffer.from(m[2], 'base64'));
+});
 
 const MAX_PHOTOS = 3, MAX_PHOTO = 250000, MAX_TOTAL = 620000; // fotos (caracteres base64): el cliente las reduce a 1024 px y ≤150 KB c/u
 const MAX_PIN_FAILS = 5, LOCK_MS = 5 * 60 * 1000;             // 5 intentos y bloqueo de 5 minutos
@@ -53,6 +68,7 @@ const ACTIVE = new Set(['available', 'paused', 'reserved']); // cuentan para PUB
 const envInt = (name, def) => { const n = parseInt(process.env[name], 10); return Number.isFinite(n) && n > 0 ? n : def; };
 const pubLimit = () => envInt('PUB_LIMIT_USER', 10);
 const storageLimit = () => envInt('STORAGE_LIMIT_MB', 400);
+const orderTtlMs = () => envInt('ORDER_TTL_HOURS', 48) * 3600e3; // vigencia de un pedido pendiente (libera la reserva al vencer)
 
 const convs = new Map();    // "pid|buyerId" -> { key, pid, buyerId, buyerName, msgs: [] }
 const products = new Map(); // id -> publicación (catálogo compartido)
@@ -61,6 +77,15 @@ const orders = new Map();   // id -> pedido
 const quotas = new Map();   // uid -> contadores de límites (sobreviven a re-join y a varios sockets del mismo usuario)
 let lastId = Date.now();
 let OFFICIAL = null;       // cuenta oficial (la admin): { uid, name } o null; se define en boot()
+
+/* ---------- Fotos fuera del catálogo (v8.7.0) ---------- */
+const DATA_IMG = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/;
+const isData = (f) => typeof f === 'string' && f.startsWith('data:');
+// Lo que viaja por Socket.io: las fotos en base64 se reemplazan por su URL (/foto/:pid/:n); las claves internas (cam, dron...) quedan igual
+const pubProduct = (p) => ({ ...p, ph: (p.ph || []).map((f, i) => (isData(f) ? '/foto/' + p.id + '/' + i : f)) });
+// Conversaciones y mensajes (v8.7.0): la fila de la conversación NO lleva los mensajes; cada mensaje es una fila de messages
+const convRow = (c) => { const { msgs, ...r } = c; return r; };
+const newMsgId = () => Date.now().toString(36) + crypto.randomBytes(4).toString('hex');
 
 const ownerOf = (pid) => owners.get(pid);
 const ownerOfConv = (c) => (c.pid === 0 ? OFFICIAL && OFFICIAL.uid : ownerOf(c.pid)); // pid 0 = chat directo con la cuenta oficial
@@ -216,6 +241,8 @@ function view(o, uid) {
   if (uid === o.buyerId && o.status === 'pending') v.pin = o.pin;
   v.locked = !!(o.lockedUntil && o.lockedUntil > Date.now());
   v.reviewed = community.reviewed(o.id); // ya tiene reseña (una por pedido)
+  if (isData(v.ph)) v.ph = '/foto/' + o.pid + '/0'; // la foto del pedido viaja como URL, no como base64
+  if (o.status === 'pending') v.expiresAt = deadline(o); // cuándo vence si nadie lo atiende
   return v;
 }
 // la foto del pedido es copia de la de la publicación: no se duplica en la base (se vuelve a enlazar al cargar)
@@ -255,6 +282,31 @@ async function removeProduct(pid) {
   catch (e) { console.error('[server] no se pudo guardar la eliminación de una publicación:', e.message); }
   return true;
 }
+// Vencimiento de pedidos pendientes: ORDER_TTL_HOURS desde que se crearon (los alquileres, desde el día de inicio si es posterior)
+function deadline(o) {
+  const ttl = orderTtlMs(), f = o.mode === 'alquiler' ? Date.parse(o.from) : NaN;
+  return Math.max(o.ts + ttl, Number.isFinite(f) ? f + ttl : 0);
+}
+let expiring = false;
+// Cancela los pedidos pendientes vencidos y libera la reserva. Resuelve cuando todo quedó guardado. `now` solo lo usan las pruebas.
+async function expireOrders(now) {
+  now = now || Date.now();
+  if (expiring) return [];
+  expiring = true;
+  try {
+    const jobs = [];
+    for (const o of orders.values()) {
+      if (o.status !== 'pending' || now < deadline(o)) continue;
+      o.status = 'cancelled'; o.doneAt = now; o.cancelledBy = 'timeout';
+      const p = products.get(o.pid);
+      if (p && o.mode === 'compra' && p.status === 'reserved') jobs.push(setStatus(p, 'available'));
+      jobs.push(saveOrder(o, true).then((ok) => { pushOrder(o, true); return ok; }));
+    }
+    if (jobs.length) console.log('[pedidos] ' + jobs.length + ' cambio(s) por vencimiento (' + (orderTtlMs() / 3600e3) + ' h)');
+    return await Promise.all(jobs);
+  } catch (e) { console.error('[pedidos] error al vencer pedidos:', e.message); return []; }
+  finally { expiring = false; }
+}
 let community; // se crea en boot(), cuando la base de datos ya cargó
 
 io.on('connection', (socket) => {
@@ -285,7 +337,7 @@ io.on('connection', (socket) => {
     socket.emit('history', [...convs.values()].filter((c) => c.buyerId === uid || ownerOfConv(c) === uid));
     socket.emit('orders', [...orders.values()].filter((o) => o.buyerId === uid || o.ownerId === uid).map((o) => view(o, uid)));
     community.onJoin(socket); // publicaciones eliminadas, mis reportes, promedios y (si es admin) el panel
-    socket.emit('products', [...products.values()]); // catálogo compartido (público)
+    socket.emit('products', [...products.values()].map(pubProduct)); // catálogo compartido (público); las fotos van como URL
     io.emit('presence', presence());
   });
 
@@ -303,12 +355,12 @@ io.on('connection', (socket) => {
 
     const r = await publish(me, d);
     if (!r.p) { const i = me.pubs.lastIndexOf(now); if (i >= 0) me.pubs.splice(i, 1); } // rechazada o repetida: no gasta cupo por minuto
-    if (r.p) socket.broadcast.emit('new-product', r.p); // a todos los demás
+    if (r.p) socket.broadcast.emit('new-product', pubProduct(r.p)); // a todos los demás (fotos como URL)
     reply(r.res);
   });
 
   /* Chat privado: solo entre el interesado y el dueño del producto */
-  socket.on('send', (d, ack) => {
+  socket.on('send', async (d, ack) => {
     const reply = (o) => typeof ack === 'function' && ack(o);
     const g = guard(socket);
     if (g.err) return reply(g.err);
@@ -340,19 +392,23 @@ io.on('connection', (socket) => {
     }
     const key = pid + '|' + buyerId;
 
-    let c = convs.get(key);
-    if (!c) {
-      c = { key, pid, buyerId, buyerName: me.name, msgs: [] }; // las conversaciones nunca se descartan por tope
-      convs.set(key, c);
+    // v8.7.0: el mensaje es una fila de la tabla messages y solo se entrega cuando YA quedó guardado.
+    // Si la conversación es nueva, primero se guarda su fila (sin mensajes). Si algo falla no se entrega nada y el cliente puede reintentar.
+    const msg = { id: newMsgId(), uid: me.uid, from, name: me.name, text, ts: Date.now() };
+    const fresh = convs.has(key) ? null : { key, pid, buyerId, buyerName: me.name, msgs: [], ts: msg.ts };
+    try {
+      if (fresh) await db.convs.put(convRow(fresh), { sync: true });
+      await db.messages.put({ ...msg, key }, { sync: true });
+    } catch (e) {
+      console.error('[server] no se pudo guardar un mensaje:', e.message);
+      return reply({ ok: false, error: 'No se pudo enviar el mensaje. Inténtalo de nuevo.' });
     }
+    let c = convs.get(key);
+    if (!c) { c = fresh || { key, pid, buyerId, buyerName: me.name, msgs: [], ts: msg.ts }; convs.set(key, c); } // las conversaciones nunca se descartan por tope
     if (from === 'buyer') c.buyerName = me.name;
-
-    const msg = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      uid: me.uid, from, name: me.name, text, ts: Date.now(),
-    };
-    c.msgs.push(msg); // los mensajes tampoco se descartan por tope (el bloque 7a los pasa a su propia tabla)
-    c.ts = msg.ts; db.convs.put(c); // el chat queda guardado
+    c.msgs.push(msg); // los mensajes tampoco se descartan por tope
+    if (c.msgs.length > 1 && c.msgs[c.msgs.length - 2].ts > msg.ts) c.msgs.sort((a, b) => a.ts - b.ts); // dos envíos casi a la vez: orden por hora
+    c.ts = msg.ts; db.convs.put(convRow(c)); // solo actualiza hora y nombre de la conversación (cola); los mensajes ya están guardados
 
     io.to('u:' + buyerId).to('u:' + owner).emit('msg', {
       conv: { key, pid, buyerId, buyerName: c.buyerName },
@@ -525,10 +581,41 @@ function sendWelcome(u) {
   if (convs.has(key)) return;
   const first = String(u.name).split(' ')[0].slice(0, 16);
   const text = '¡Hola ' + first + '! 👋 Soy ' + OFFICIAL.name + '. Bienvenido a U2U. Tip para tu primera publicación: toca + Publicar, sube fotos nítidas con buena luz (hasta 3), pon un título claro con marca y modelo y un precio justo. Entrega siempre en un punto seguro del campus. Si tienes dudas, escríbeme por aquí.';
-  const msg = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uid: OFFICIAL.uid, from: 'seller', name: OFFICIAL.name, text, ts: Date.now() };
+  const msg = { id: newMsgId(), uid: OFFICIAL.uid, from: 'seller', name: OFFICIAL.name, text, ts: Date.now() };
   const c = { key, pid: 0, buyerId: u.uid, buyerName: u.name, msgs: [msg], ts: msg.ts, welcome: true };
   convs.set(key, c);
-  db.convs.put(c);
+  db.convs.put(convRow(c));
+  db.messages.put({ ...msg, key }); // misma cola que la conversación: se guardan juntas
+}
+
+/* Chats: conversaciones (tabla convs) + mensajes (tabla messages). Las conversaciones anteriores a v8.7.0 traían sus mensajes dentro de la
+   fila: se copian a messages en UNA transacción y SOLO después se reescribe la fila sin ellos (si algo falla, no se pierde nada y el
+   arranque se detiene para reintentar). Repetirlo es seguro: lo que ya está en messages no se vuelve a copiar. */
+async function loadChats() {
+  const byKey = new Map();
+  for (const m of db.rows('messages')) { if (!byKey.has(m.key)) byKey.set(m.key, new Map()); byKey.get(m.key).set(m.id, m); }
+  const moveRows = [], baseRows = [];
+  const list = db.rows('convs').sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  for (const r of list) {
+    const legacy = Array.isArray(r.msgs) ? r.msgs : [];
+    if (!byKey.has(r.key)) byKey.set(r.key, new Map());
+    const have = byKey.get(r.key);
+    for (const m of legacy) {
+      if (!m || !m.id || have.has(m.id)) continue;
+      const row = { ...m, key: r.key };
+      have.set(m.id, row); moveRows.push(row);
+    }
+    if (Array.isArray(r.msgs)) baseRows.push(convRow(r));
+  }
+  if (moveRows.length) await db.messages.putMany(moveRows);   // 1º los mensajes quedan guardados...
+  if (baseRows.length) await db.convs.putMany(baseRows);      // 2º recién entonces la fila pierde su copia
+  let total = 0;
+  for (const r of list) {
+    const msgs = [...byKey.get(r.key).values()].sort((a, b) => a.ts - b.ts).map(({ key, ...m }) => m);
+    if (!msgs.length) continue; // conversación sin mensajes (el guardado se cortó a medias): no se muestra; la fila se conserva
+    convs.set(r.key, { ...convRow(r), msgs }); total += msgs.length;
+  }
+  console.log('[chats] ' + convs.size + ' conversaciones, ' + total + ' mensajes' + (moveRows.length ? ' (' + moveRows.length + ' migrados a la tabla messages)' : ''));
 }
 
 const PORT = process.env.PORT || 3000;
@@ -544,10 +631,12 @@ async function boot(opt) {
   accounts.mount(app); // /api/register, /api/login, /api/me, /api/logout
   community = require('./community')({ io, accounts, products, orders, removeProduct, cancelPending, pushOrder, guard });
   OFFICIAL = accounts.official();
-  db.rows('convs').sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((c) => convs.set(c.key, c)); // chats guardados
+  await loadChats();                   // chats guardados (y migración única de los mensajes antiguos a la tabla messages)
   if (OFFICIAL) for (const p of products.values()) if (p.ownerUid === OFFICIAL.uid) { p.official = true; p.ownerName = OFFICIAL.name; }
   seedCatalog();                       // crea solo lo que falta (sin duplicar ni recrear lo eliminado)
   accounts.onSecretChange((uid) => io.in('u:' + uid).disconnectSockets(true)); // secret rotado: fuera los sockets viejos
+  expireOrders();                      // pedidos pendientes vencidos mientras el servidor estuvo apagado
+  setInterval(expireOrders, 5 * 60e3).unref(); // y cada 5 minutos
   accounts.onRegister(sendWelcome);    // bienvenida automática a cada cuenta al verificar su correo
   await refreshStorage(true);          // mide el espacio al arrancar y cada 10 min (solo con PostgreSQL)
   setInterval(() => refreshStorage(true), 10 * 60e3).unref();
@@ -563,7 +652,7 @@ if (require.main === module) {
 module.exports = {
   boot,
   _test: {
-    publish, products, orders, convs, db, io, server,
+    publish, products, orders, convs, db, io, server, pubProduct, view, expireOrders, loadChats,
     setStorageMb: (mb) => { storage.mb = mb; storage.at = Date.now(); },
     close: async () => { io.close(); await db.flush(); },
   },

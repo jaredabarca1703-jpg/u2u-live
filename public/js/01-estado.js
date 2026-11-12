@@ -15,7 +15,7 @@ try{Object.assign(ST,JSON.parse(localStorage.getItem('u2u6')||'{}'));PR=[...ST.m
 const save=()=>{try{ST.mine=PR.filter(p=>p.id>100&&!p.remote);localStorage.setItem('u2u6',JSON.stringify(ST))}catch(e){toast('Memoria llena: no se guardó')}};
 const DK=[6.2,4.5,8.3,.6];PR.forEach(p=>{if(p.s!=ME)p.d=+(DK[SEL[p.s].cp]+((p.id*13)%9)/10).toFixed(1)});
 const src=k=>IM[k]||k,P=id=>PR.find(p=>p.id==id);
-const pic=(p,i=0,c='')=>p.ph[i]?`<img src="${src(p.ph[i])}" alt="${esc(p.t||'Producto')}" onerror="imgErr(this,'${p.e||'📦'}')" class="w-full h-full object-cover ${c}">`:`<div class="w-full h-full grid place-items-center text-5xl bg-blue-50">${p.e||'📦'}</div>`;
+const pic=(p,i=0,c='')=>p.ph[i]?`<img src="${src(p.ph[i])}" loading="lazy" decoding="async" alt="${esc(p.t||'Producto')}" onerror="imgErr(this,'${p.e||'📦'}')" class="w-full h-full object-cover ${c}">`:`<div class="w-full h-full grid place-items-center text-5xl bg-blue-50">${p.e||'📦'}</div>`;
 const price=(p,m)=>{m=m||p.mode;return m=='alquiler'?`${sol(p.rent)}<small class="font-semibold text-slate-500">/día</small>`:m=='venta'?sol(p.price):`${sol(p.price)}<small class="font-semibold text-slate-500"> · ${sol(p.rent)}/día</small>`};
 const tag=m=>m=='venta'?['Venta','bg-emerald-100 text-emerald-700']:m=='alquiler'?['Alquiler','bg-sky-100 text-sky-700']:['Venta · Alquiler','bg-violet-100 text-violet-700'];
 const stars=n=>'★'.repeat(Math.round(n))+'☆'.repeat(5-Math.round(n));
