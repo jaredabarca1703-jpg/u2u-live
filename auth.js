@@ -117,8 +117,10 @@ async function issue(u) { // la sesión queda guardada (sobrevive a reinicios); 
   return token;
 }
 // Datos de la propia cuenta (nunca incluye el correo). admin: solo informativo; el servidor lo vuelve a comprobar en cada acción.
+let meExtra = null; // parte A: server.js añade can_message y commission_due a los datos de MI cuenta
 const pub = (u) => ({
   uid: u.uid, secret: u.secret, name: u.name, admin: !!u.admin, verified: isVerified(u), pending: !!u.pending,
+  ...(meExtra ? meExtra(u) : {}),
   ...(u.admin || u.verified === undefined ? { username: u.username } : {}), // el usuario de login solo existe en cuentas anteriores al bloque 5
   ...(u.admin ? {} : { email: u.email }), // solo su dueño lo ve; nunca en perfiles públicos
   condition: u.cond || null, career: u.career || null, cycle: u.cycle || null, campus: u.campus || null, vis: u.vis || null,
@@ -568,6 +570,8 @@ module.exports = {
   mount, accountFor, check, getByUid, setBlocked, listBlocked, flush: () => store.flush(), official: () => OFFICIAL,
   onRegister: (fn) => { onReg = fn; },          // se llama al VERIFICAR la cuenta (no al crearla)
   isVerified, publicProfile, parseUpcEmail, sweep,
+  onMe: (fn) => { if (typeof fn === 'function') meExtra = fn; },          // parte A: datos extra en /api/me
+  userFromReq: (req) => { const s = fromReq(req); return s ? s.u : null; }, // parte A: sesión de las rutas REST de commission.js
   onSecretChange: (fn) => { onRot = fn; }, // se llama al rotar el secret (cambio o recuperación de contraseña)
   setMailer: (fn) => { if (typeof fn === 'function') mailer = fn; }, // bloque 6: proveedor real de correo
 };

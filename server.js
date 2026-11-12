@@ -76,6 +76,13 @@ const owners = new Map();   // pid -> uid del dueño
 const orders = new Map();   // id -> pedido
 const quotas = new Map();   // uid -> contadores de límites (sobreviven a re-join y a varios sockets del mismo usuario)
 let lastId = Date.now();
+/* ---------- Comisión por venta (parte A, commission.js): COMMISSION_MODE=off|shadow|active, nace apagada ---------- */
+const fees = require('./commission')({
+  orders, products, setStatus, saveOrder, pushOrder, maxPinFails: MAX_PIN_FAILS, lockMs: LOCK_MS,
+  emitTo: (uid, ev, payload) => io.to('u:' + uid).emit(ev, payload),
+  isVerified: (u) => accounts.isVerified(u),
+  env: process.env,
+});
 let OFFICIAL = null;       // cuenta oficial (la admin): { uid, name } o null; se define en boot()
 
 /* ---------- Fotos fuera del catálogo (v8.7.0) ---------- */
@@ -185,6 +192,8 @@ const activeCount = (uid) => { let n = 0; for (const p of products.values()) if 
    la respuesta de éxito solo sale cuando la publicación ya quedó guardada. Devuelve { res: ack, p?: publicación nueva }. */
 async function publish(me, d) {
   if (me.verified === false) return { res: notVerified() };
+  const fd = fees.restrict(me.uid, { action: 'publish' }); // comisión pendiente + COMMISSION_BLOCK_SCOPE=new
+  if (fd) return { res: fd };
   const r = cleanProduct(d, me);
   if (r.error) return { res: { ok: false, error: r.error } };
   const p = r.p;
@@ -237,7 +246,7 @@ function newOrderId() {
 // El PIN solo lo ve el comprador y mientras el pedido está pendiente. Nunca llega al dueño.
 function view(o, uid) {
   const v = { ...o };
-  delete v.pin; delete v.fails; delete v.lockedUntil;
+  delete v.pin; delete v.fails; delete v.lockedUntil; delete v.commission; // la comisión no viaja dentro del pedido (ni opNumber ni titular)
   if (uid === o.buyerId && o.status === 'pending') v.pin = o.pin;
   v.locked = !!(o.lockedUntil && o.lockedUntil > Date.now());
   v.reviewed = community.reviewed(o.id); // ya tiene reseña (una por pedido)
@@ -336,6 +345,7 @@ io.on('connection', (socket) => {
     // Todo lo privado: solo MIS conversaciones y MIS pedidos (como comprador o como dueño)
     socket.emit('history', [...convs.values()].filter((c) => c.buyerId === uid || ownerOfConv(c) === uid));
     socket.emit('orders', [...orders.values()].filter((o) => o.buyerId === uid || o.ownerId === uid).map((o) => view(o, uid)));
+    if (fees.mode() === 'active') socket.emit('commission', fees.snapshot(uid)); // estado de mi comisión (parte B lo muestra)
     community.onJoin(socket); // publicaciones eliminadas, mis reportes, promedios y (si es admin) el panel
     socket.emit('products', [...products.values()].map(pubProduct)); // catálogo compartido (público); las fotos van como URL
     io.emit('presence', presence());
@@ -391,6 +401,8 @@ io.on('connection', (socket) => {
       from = 'buyer';
     }
     const key = pid + '|' + buyerId;
+    const fd = fees.restrict(me.uid, { action: 'message', toOfficial: !!OFFICIAL && owner === OFFICIAL.uid, chatExists: convs.has(key) }); // comisión pendiente: bloqueo según COMMISSION_BLOCK_SCOPE (a la cuenta oficial siempre puede)
+    if (fd) return reply(fd);
 
     // v8.7.0: el mensaje es una fila de la tabla messages y solo se entrega cuando YA quedó guardado.
     // Si la conversación es nueva, primero se guarda su fila (sin mensajes). Si algo falla no se entrega nada y el cliente puede reintentar.
@@ -428,6 +440,8 @@ io.on('connection', (socket) => {
 
     if (me.verified === false) return reply(notVerified());
     if (me.admin) return reply({ error: 'La cuenta oficial vende y modera: no compra ni alquila' });
+    const fd = fees.restrict(me.uid, { action: 'order' }); // comisión pendiente + COMMISSION_BLOCK_SCOPE=new
+    if (fd) return reply(fd);
     const now = Date.now();
     me.ords = (me.ords || []).filter((t) => now - t < 60000);
     if (me.ords.length >= 5) return reply({ error: 'Demasiados pedidos seguidos, espera un minuto' });
@@ -461,6 +475,7 @@ io.on('connection', (socket) => {
     const o = {
       id: newOrderId(), pid, t: p.t, ph: p.ph[0] || '', mode, total, days, del, from, to,
       cp: Math.min(3, Math.max(0, parseInt(d.cp, 10) || 0)),
+      baseCents: Math.round(base * 100), // precio del producto (sin protección ni delivery): base de la comisión
       status: 'pending', buyerId: me.uid, buyerName: me.name, ownerId, ownerName: p.ownerName,
       ts: now, doneAt: 0, pin: newPin(), fails: 0, lockedUntil: 0,
     };
@@ -479,48 +494,17 @@ io.on('connection', (socket) => {
     reply({ ok: true, order: view(o, me.uid) });
   });
 
-  /* Confirmar entrega: SOLO el dueño, ingresando el código que le muestra el comprador */
+  /* Confirmar entrega: SOLO el dueño, ingresando el código que le muestra el comprador.
+     La lógica vive en commission.js (confirmDelivery: la misma para este evento y para POST /api/orders/:id/confirm);
+     con COMMISSION_MODE=shadow|active además crea la comisión del pedido en la misma operación. */
   socket.on('order:confirm', async (d, ack) => {
     const reply = (o) => typeof ack === 'function' && ack(o);
     const g = guard(socket);
     if (g.err) return reply(g.err);
-    const me = g.me;
     d = d || {};
-    const o = orders.get(String(d.id || ''));
-    if (!o || o.ownerId !== me.uid) return reply({ error: 'Pedido no encontrado' });
-    if (o.status !== 'pending') return reply({ error: 'Este pedido ya no está pendiente' });
-
-    const now = Date.now();
-    if (o.lockedUntil > now) {
-      return reply({ error: 'Demasiados intentos. Espera ' + Math.ceil((o.lockedUntil - now) / 60000) + ' min e inténtalo de nuevo' });
-    }
-    const pin = String(d.pin || '').replace(/\D/g, '').slice(0, 6);
-    if (pin.length !== 6) return reply({ error: 'El código tiene 6 dígitos' });
-
-    const a = Buffer.from(pin), b = Buffer.from(o.pin);
-    if (!crypto.timingSafeEqual(a, b)) {
-      o.fails++;
-      if (o.fails >= MAX_PIN_FAILS) {
-        o.fails = 0; o.lockedUntil = now + LOCK_MS;
-        await saveOrder(o, true); // el bloqueo y los intentos fallidos sobreviven a un reinicio
-        pushOrder(o, true);
-        return reply({ error: 'Código incorrecto. Pedido bloqueado 5 minutos por seguridad' });
-      }
-      await saveOrder(o, true);
-      return reply({ error: 'Código incorrecto (' + (MAX_PIN_FAILS - o.fails) + ' intentos restantes)' });
-    }
-
-    o.status = 'completed'; o.doneAt = now; o.fails = 0;
-    const p = products.get(o.pid);
-    const sell = !!(p && o.mode === 'compra');
-    const saved = await Promise.all([saveOrder(o, true), sell ? setStatus(p, 'sold') : true]);
-    if (!saved.every(Boolean)) { // no quedó guardado: el pedido sigue pendiente y se puede reintentar
-      o.status = 'pending'; o.doneAt = 0; saveOrder(o);
-      if (sell) await setStatus(p, 'reserved');
-      return reply({ ok: false, error: 'No se pudo guardar la entrega. Inténtalo de nuevo.' });
-    }
-    pushOrder(o, true);
-    reply({ ok: true });
+    const r = await fees.confirmDelivery(String(d.id || ''), g.me.uid, d.pin);
+    if (!r.ok) return reply({ ok: false, code: r.code, error: r.error });
+    reply({ ok: true, ...(r.commission ? { commission: r.commission } : {}) });
   });
 
   /* Cancelar un pedido pendiente (comprador o dueño): libera la reserva */
@@ -628,6 +612,9 @@ async function boot(opt) {
   rows.forEach((p) => { lastId = Math.max(lastId, p.id); }); // los ids de eliminadas también cuentan: nunca se reutilizan
   rows.filter((p) => !p.deleted_at).sort((a, b) => a.ts - b.ts).forEach((p) => { products.set(p.id, p); owners.set(p.id, p.ownerUid); });
   db.rows('orders').sort((a, b) => a.ts - b.ts).forEach((o) => { const p = products.get(o.pid); if (!o.ph && p && p.ph[0]) o.ph = p.ph[0]; orders.set(o.id, o); });
+  fees.describe(); fees.rebuild();   // comisiones abiertas por vendedor y números de operación usados, desde los pedidos ya cargados
+  fees.mount(app, accounts);         // rutas REST de la comisión: ANTES de accounts.mount (su router responde 404 a cualquier /api/... que no conozca)
+  accounts.onMe((u) => ({ can_message: fees.canMessage(u.uid), commission_due: fees.due(u.uid) })); // /api/me
   accounts.mount(app); // /api/register, /api/login, /api/me, /api/logout
   community = require('./community')({ io, accounts, products, orders, removeProduct, cancelPending, pushOrder, guard });
   OFFICIAL = accounts.official();
@@ -652,7 +639,7 @@ if (require.main === module) {
 module.exports = {
   boot,
   _test: {
-    publish, products, orders, convs, db, io, server, pubProduct, view, expireOrders, loadChats,
+    publish, products, orders, convs, db, io, server, pubProduct, view, expireOrders, loadChats, fees,
     setStorageMb: (mb) => { storage.mb = mb; storage.at = Date.now(); },
     close: async () => { io.close(); await db.flush(); },
   },
