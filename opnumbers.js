@@ -1,6 +1,6 @@
 /* U2U · registro único de números de operación de Yape (comisiones y, más adelante, destacados).
  * Un número se usa UNA sola vez en todo el sistema. Solo en memoria: se reconstruye al arrancar desde los pedidos
- * (commission.js → rebuild) y, cuando exista, desde los destacados. claim() es síncrono: no hay await entre comprobar y reservar.
+ * (commission.js → rebuild) y luego se SUMAN los de los destacados (featured.js → rebuild, que usa add). claim() es síncrono: no hay await entre comprobar y reservar.
  * Normalización: mayúsculas, sin espacios, de 4 a 20 caracteres alfanuméricos. Nunca se escribe en los logs. */
 const used = new Set();
 
@@ -22,4 +22,9 @@ function rebuild(list) { // reemplaza todo el registro por la lista dada (númer
   return used.size;
 }
 
-module.exports = { normalize, claim, release, has, rebuild, size: () => used.size };
+function add(list) { // suma números ya guardados SIN borrar los que hay (featured.js lo llama después de commission.js → rebuild)
+  for (const op of list || []) { const n = normalize(op); if (n) used.add(n); }
+  return used.size;
+}
+
+module.exports = { normalize, claim, release, has, rebuild, add, size: () => used.size };

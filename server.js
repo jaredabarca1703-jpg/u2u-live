@@ -23,6 +23,8 @@
  *   GET /foto/:pid/:n con caché del navegador y el catálogo solo lleva esa URL; (2) los pedidos pendientes vencen a las
  *   ORDER_TTL_HOURS (48 h por defecto) y liberan la reserva; (3) cada mensaje del chat es una fila de la tabla messages y solo se
  *   entrega y confirma cuando quedó guardado (las conversaciones antiguas se migran solas al iniciar).
+ * - v8.7.3 (parte C): destacar publicaciones (featured.js, FEATURE_MODE=off|free|paid, nace apagado): las vigentes salen primero en el catálogo
+ *   y llevan featured:true; al venderse, pausarse o eliminarse una publicación se cancelan sus solicitudes (setStatus y removeProduct).
  * - v8.6.7 (bloque 7): al cambiar o recuperar la contraseña se rota el secret y se desconectan los sockets de esa cuenta;
  *   el nombre editado en «Mi cuenta» se usa en las publicaciones nuevas.
  */
@@ -81,6 +83,15 @@ const fees = require('./commission')({
   orders, products, setStatus, saveOrder, pushOrder, maxPinFails: MAX_PIN_FAILS, lockMs: LOCK_MS,
   emitTo: (uid, ev, payload) => io.to('u:' + uid).emit(ev, payload),
   isVerified: (u) => accounts.isVerified(u),
+  isOfficial: (uid) => !!OFFICIAL && uid === OFFICIAL.uid,
+  env: process.env,
+});
+/* ---------- Destacados (parte C, featured.js): FEATURE_MODE=off|free|paid, nace apagado ---------- */
+const featured = require('./featured')({
+  products, saveProduct, saveFeatured,
+  emitTo: (uid, ev, payload) => io.to('u:' + uid).emit(ev, payload),
+  broadcast: (ev, payload) => io.emit(ev, payload),
+  isVerified: (u) => accounts.isVerified(u),
   env: process.env,
 });
 let OFFICIAL = null;       // cuenta oficial (la admin): { uid, name } o null; se define en boot()
@@ -89,7 +100,7 @@ let OFFICIAL = null;       // cuenta oficial (la admin): { uid, name } o null; s
 const DATA_IMG = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/;
 const isData = (f) => typeof f === 'string' && f.startsWith('data:');
 // Lo que viaja por Socket.io: las fotos en base64 se reemplazan por su URL (/foto/:pid/:n); las claves internas (cam, dron...) quedan igual
-const pubProduct = (p) => ({ ...p, ph: (p.ph || []).map((f, i) => (isData(f) ? '/foto/' + p.id + '/' + i : f)) });
+const pubProduct = (p) => ({ ...p, ph: (p.ph || []).map((f, i) => (isData(f) ? '/foto/' + p.id + '/' + i : f)), ...(featured.isFeatured(p) ? { featured: true } : {}) });
 // Conversaciones y mensajes (v8.7.0): la fila de la conversación NO lleva los mensajes; cada mensaje es una fila de messages
 const convRow = (c) => { const { msgs, ...r } = c; return r; };
 const newMsgId = () => Date.now().toString(36) + crypto.randomBytes(4).toString('hex');
@@ -227,8 +238,17 @@ async function publish(me, d) {
 function setStatus(p, status) {
   if (p.status === status) return Promise.resolve(true);
   p.status = status;
+  if (status === 'sold' || status === 'paused') featured.onGone(p.id, status); // vendida o pausada: se cancelan sus solicitudes de destacar (y p.featuredUntil queda en 0 antes de guardar)
   io.emit('product-status', { id: p.id, status }); // todos ven el cambio al instante
   return db.products.put(p, { sync: true }).then(() => true, (e) => { console.error('[server] no se pudo guardar el estado de una publicación:', e.message); return false; });
+}
+
+// Guardado para destacados (parte C): esperan a quedar escritos y resuelven true/false (nunca lanzan)
+function saveProduct(p) {
+  return db.products.put(p, { sync: true }).then(() => true, (e) => { console.error('[server] no se pudo guardar una publicación:', e.message); return false; });
+}
+function saveFeatured(r) {
+  return db.featured.put(r, { sync: true }).then(() => true, (e) => { console.error('[destacados] no se pudo guardar una solicitud:', e.message); return false; });
 }
 
 /* ---------- Pedidos con código de entrega ---------- */
@@ -286,9 +306,11 @@ async function removeProduct(pid) {
   const p = products.get(pid);
   if (!p) return false;
   products.delete(pid);
+  const gone = featured.onGone(pid, 'deleted'); // cancela sus solicitudes de destacar (si había dinero de por medio: refundDue)
   io.emit('product-removed', { id: pid }); // desaparece al instante para todos
   try { await db.products.put({ ...p, deleted_at: Date.now() }, { sync: true }); }
   catch (e) { console.error('[server] no se pudo guardar la eliminación de una publicación:', e.message); }
+  await gone;
   return true;
 }
 // Vencimiento de pedidos pendientes: ORDER_TTL_HOURS desde que se crearon (los alquileres, desde el día de inicio si es posterior)
@@ -347,7 +369,7 @@ io.on('connection', (socket) => {
     socket.emit('orders', [...orders.values()].filter((o) => o.buyerId === uid || o.ownerId === uid).map((o) => view(o, uid)));
     if (fees.mode() === 'active') socket.emit('commission', fees.snapshot(uid)); // estado de mi comisión (parte B lo muestra)
     community.onJoin(socket); // publicaciones eliminadas, mis reportes, promedios y (si es admin) el panel
-    socket.emit('products', [...products.values()].map(pubProduct)); // catálogo compartido (público); las fotos van como URL
+    socket.emit('products', featured.order([...products.values()]).map(pubProduct)); // catálogo compartido (público): destacadas vigentes primero; las fotos van como URL
     io.emit('presence', presence());
   });
 
@@ -614,6 +636,8 @@ async function boot(opt) {
   db.rows('orders').sort((a, b) => a.ts - b.ts).forEach((o) => { const p = products.get(o.pid); if (!o.ph && p && p.ph[0]) o.ph = p.ph[0]; orders.set(o.id, o); });
   fees.describe(); fees.rebuild();   // comisiones abiertas por vendedor y números de operación usados, desde los pedidos ya cargados
   fees.mount(app, accounts);         // rutas REST de la comisión: ANTES de accounts.mount (su router responde 404 a cualquier /api/... que no conozca)
+  featured.describe(); featured.rebuild(db.rows('featured')); // destacados: DESPUÉS de fees.rebuild() (suma sus números de operación al mismo registro) y con los productos ya cargados
+  featured.mount(app, accounts);     // rutas REST de destacados: también ANTES de accounts.mount
   accounts.onMe((u) => ({ can_message: fees.canMessage(u.uid), commission_due: fees.due(u.uid) })); // /api/me
   accounts.mount(app); // /api/register, /api/login, /api/me, /api/logout
   community = require('./community')({ io, accounts, products, orders, removeProduct, cancelPending, pushOrder, guard });
@@ -639,7 +663,7 @@ if (require.main === module) {
 module.exports = {
   boot,
   _test: {
-    publish, products, orders, convs, db, io, server, pubProduct, view, expireOrders, loadChats, fees,
+    publish, products, orders, convs, db, io, server, pubProduct, view, expireOrders, loadChats, fees, featured,
     setStorageMb: (mb) => { storage.mb = mb; storage.at = Date.now(); },
     close: async () => { io.close(); await db.flush(); },
   },

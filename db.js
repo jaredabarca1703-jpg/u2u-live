@@ -11,6 +11,8 @@
  *    guarda varias filas en UNA transacción (PostgreSQL) o con una sola escritura de archivo. messages tampoco admite del().
  *  - v8.6.6 (bloque 6): tabla counters (key text PK, window text, count int) con UPSERT atómico: counters.hit(key, window)
  *    suma 1 y devuelve el conteo de esa ventana (si la ventana cambió, reinicia en 1). Límites de correo (auth.js).
+ *  - v8.7.3 (parte C): tabla featured (solicitudes para destacar una publicación: id, pid, ownerUid, amount, status, opNumber...).
+ *    Tampoco admite del(): una solicitud cancelada o vencida se conserva (el dinero cobrado se concilia con ella).
  */
 const fs = require('fs');
 const path = require('path');
@@ -30,9 +32,10 @@ const T = {
   removed: { kt: 'bigint', cols: { uid: ['text', (d) => d.uid || ''] } },
   convs: { kt: 'text', cols: { buyer_id: ['text', (d) => d.buyerId], pid: ['bigint', (d) => d.pid], ts: ['bigint', (d) => d.ts || 0] }, idx: ['buyer_id'] }, // chats (sin los mensajes desde v8.7.0)
   messages: { kt: 'text', cols: { conv_key: ['text', (d) => d.key], ts: ['bigint', (d) => d.ts || 0] }, idx: ['conv_key'] }, // una fila por mensaje
+  featured: { kt: 'text', cols: { pid: ['bigint', (d) => d.pid], owner_uid: ['text', (d) => d.ownerUid], status: ['text', (d) => d.status], ts: ['bigint', (d) => d.createdAt || 0] }, idx: ['owner_uid', 'pid'] }, // destacados (parte C)
 };
-const KEY = { users: 'uid', sessions: 'h', products: 'id', orders: 'id', reports: 'id', reviews: 'id', removed: 'pid', convs: 'key', messages: 'id' };
-const NO_DEL = new Set(['products', 'orders', 'convs', 'messages', 'reviews', 'reports', 'removed']); // datos de la comunidad: nunca se borran
+const KEY = { users: 'uid', sessions: 'h', products: 'id', orders: 'id', reports: 'id', reviews: 'id', removed: 'pid', convs: 'key', messages: 'id', featured: 'id' };
+const NO_DEL = new Set(['products', 'orders', 'convs', 'messages', 'reviews', 'reports', 'removed', 'featured']); // datos de la comunidad: nunca se borran
 const names = Object.keys(T);
 
 let pool = null;
