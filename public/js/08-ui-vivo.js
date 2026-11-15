@@ -62,3 +62,14 @@ function netUI(down){const e=$('#net');if(!e)return;clearTimeout(e.t);
  else if(e.dataset.d=='1'){e.dataset.d='';e.className='absolute top-0 inset-x-0 z-[60] text-center text-xs font-semibold py-1.5 bg-emerald-500 text-white';e.textContent='✓ Conexión restablecida';e.t=setTimeout(()=>e.className='hidden',1800)}}
 window.addEventListener('offline',()=>netUI(1));window.addEventListener('online',()=>{if(!sock||sock.connected)netUI(0)});
 
+
+async function myProductDelete(pid){
+  if(!await askConfirm({title:'¿Eliminar tu publicación?',msg:'Desaparecerá del catálogo para todos los estudiantes.',ok:'Sí, eliminar',no:'Volver',danger:1,icon:'trash-2'}))return;
+  if(!sock||!sock.connected)return toast('Sin conexión con el servidor');
+  sock.emit('product:delete',{id:pid},r=>{
+    if(r&&r.error)return toast(r.error);
+    dropProduct(pid,true);
+    toast('Publicación eliminada');
+    if(S.s==='detail')back();else if(S.s==='profile')R(1);
+  });
+}

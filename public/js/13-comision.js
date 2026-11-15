@@ -38,22 +38,22 @@ function comModal(first){if(!comActive())return;const todo=comTodo(),it=todo[0];
  if(!it){M(`<div class="bg-white w-full rounded-t-3xl p-7 text-center pop" role="dialog" aria-modal="true" aria-labelledby="cmt"><div class="w-16 h-16 bg-amber-100 rounded-full grid place-items-center mx-auto text-3xl" aria-hidden="true">⏳</div><p id="cmt" class="font-extrabold text-xl mt-3 text-navy">Pago en revisión</p><p class="text-sm text-slate-500 mt-1">${comWait().length?'El equipo U2U está verificando tu pago. Apenas lo apruebe podrás escribir de nuevo.':'No tienes comisiones pendientes.'}</p><button class="btn mt-5" onclick="X()">Entendido</button></div>`);return}
  COM.cur=it.orderId;const y=COM.cm.yape,total=todo.reduce((s,i)=>s+i.amount,0),lb='text-xs font-semibold text-slate-600';
  M(`<div class="bg-white w-full rounded-t-3xl p-6 pop max-h-[92%] overflow-y-auto no-sb" role="dialog" aria-modal="true" aria-labelledby="cmt">
- <p id="cmt" class="font-extrabold text-xl text-navy text-center">${first?'¡Venta exitosa!':'Reportar pago de comisión'}</p>
- ${it.status==='rejected'?`<p class="mt-3 text-xs bg-red-50 text-red-700 rounded-xl p-3">Tu reporte fue rechazado${it.rejectReason?': '+esc(it.rejectReason):''}. Revisa los datos y repórtalo de nuevo con el número de operación correcto.</p>`:''}
+ <p id="cmt" class="font-extrabold text-xl text-navy text-center">${first?'¡Venta exitosa!':'Registrar pago de comisión'}</p>
+ ${it.status==='rejected'?`<p class="mt-3 text-xs bg-red-50 text-red-700 rounded-xl p-3">Tu reporte fue rechazado${it.rejectReason?': '+esc(it.rejectReason):''}. Revisa los datos y regístralo de nuevo con el número de operación correcto.</p>`:''}
  <p class="text-sm text-slate-600 mt-3 leading-snug">Para mantener tu cuenta activa y seguir enviando mensajes, paga la comisión de servicio de U2U (${comPct((COM.cfg&&COM.cfg.rate)||0.03)}): <b class="text-navy">${solC(it.amount)}</b> ${y?`por Yape al <b class="text-navy select-all">${esc(y.number)}</b>${y.holder?' a nombre de <b class="text-navy">'+esc(y.holder)+'</b>':''}`:'por Yape. Escríbele a U2U Oficial para recibir el número de pago'}.</p>
  ${todo.length>1?`<p class="text-[11px] text-slate-500 mt-2">Tienes ${todo.length} comisiones pendientes (${solC(total)}). Se reportan una por una.</p>`:''}
  ${y?`<button type="button" data-com="copy" class="chip mt-3">📋 Copiar número</button>`:''}
  <label class="${lb} block mt-4" for="cm_op">Número de operación de Yape</label><input id="cm_op" class="inp" style="font-size:16px" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej. 12345678"><p id="cm_e_op" role="alert" class="text-red-500 text-xs -mt-2 mb-2 min-h-[1rem]"></p>
  <label class="${lb} block" for="cm_nm">Nombre o celular del titular</label><input id="cm_nm" class="inp" style="font-size:16px" maxlength="60" autocomplete="off" placeholder="Quién hizo el Yape"><p id="cm_e_nm" role="alert" class="text-red-500 text-xs -mt-2 mb-2 min-h-[1rem]"></p>
  <p id="cm_e_gen" role="alert" class="text-red-500 text-xs text-center min-h-[1rem]"></p>
- <button id="cm_go" type="button" data-com="go" class="btn">Reportar pago</button><button type="button" class="w-full py-3 text-slate-500 font-semibold" onclick="X()">Pagar después</button>
+ <button id="cm_go" type="button" data-com="go" class="btn">Registrar pago</button><button type="button" class="w-full py-3 text-slate-500 font-semibold" onclick="X()">Pagar después</button>
  <p class="text-[10px] text-slate-400 text-center">Si no pagas, no podrás enviar mensajes hasta que U2U apruebe tu pago. El número de operación solo lo ve el administrador.</p></div>`)}
 async function comReport(){if(COM.busy||!COM.cur)return;const g=id=>document.querySelector('#'+id),set=(id,t)=>{const e=g(id);if(e)e.textContent=t||''};
  const v=comValidate((g('cm_op')||{}).value,(g('cm_nm')||{}).value);set('cm_e_op',v.err.op);set('cm_e_nm',v.err.nm);set('cm_e_gen','');if(!v.ok)return;
  COM.busy=true;const b=g('cm_go');if(b){b.disabled=true;b.textContent='Enviando…'}
  const r=await api('orders/'+encodeURIComponent(COM.cur)+'/report-yape',{operationNumber:v.op,senderName:v.nm},comTk());COM.busy=false;
  if(r.ok&&r.j&&r.j.ok){await comLoad();toast('Pago en revisión');return comModal()}
- if(b){b.disabled=false;b.textContent='Reportar pago'}const j=r.j||{},m=j.error||(r.status==0?'No hay conexión con el servidor. Reintenta en unos segundos.':'No se pudo enviar. Intenta de nuevo.');
+ if(b){b.disabled=false;b.textContent='Registrar pago'}const j=r.j||{},m=j.error||(r.status==0?'No hay conexión con el servidor. Reintenta en unos segundos.':'No se pudo enviar. Intenta de nuevo.');
  if(j.field==='operationNumber')set('cm_e_op',m);else if(j.field==='senderName')set('cm_e_nm',m);else set('cm_e_gen',m);
  if(j.code==='NOT_FOUND')comLoad()}
 function comCopy(){const n=COM.cm&&COM.cm.yape&&COM.cm.yape.number;if(!n)return;
@@ -63,14 +63,14 @@ function comCopy(){const n=COM.cm&&COM.cm.yape&&COM.cm.yape.number;if(!n)return;
 /* ---------- 2. aviso permanente ---------- */
 function comBannerH(){if(!comActive())return '';const t=comTodo(),w=comWait();if(!t.length&&!w.length)return '';
  const sum=t.reduce((s,i)=>s+i.amount,0);
- return `<button type="button" data-com="banner" class="com-b mx-5 mt-4 w-[calc(100%-2.5rem)] rounded-2xl border p-3 text-xs flex gap-2 items-center text-left ${t.length?'bg-amber-50 border-amber-200 text-amber-900':'bg-blue-50 border-blue-200 text-navy'}"><span class="text-lg" aria-hidden="true">${t.length?'💳':'⏳'}</span><span class="flex-1">${t.length?`<b>Tienes una comisión pendiente de ${solC(sum)}</b> · <u>Reportar pago</u>`:'<b>Tu pago está en revisión</b>'}</span></button>`}
+ return `<button type="button" data-com="banner" class="com-b mx-5 mt-4 w-[calc(100%-2.5rem)] rounded-2xl border p-3 text-xs flex gap-2 items-center text-left ${t.length?'bg-amber-50 border-amber-200 text-amber-900':'bg-blue-50 border-blue-200 text-navy'}"><span class="text-lg" aria-hidden="true">${t.length?'💳':'⏳'}</span><span class="flex-1">${t.length?`<b>Tienes una comisión pendiente de ${solC(sum)}</b> · <u>Registrar pago</u>`:'<b>Tu pago está en revisión</b>'}</span></button>`}
 
 /* ---------- 3. chat restringido + 4. transparencia: se aplican sobre el DOM después de cada render ---------- */
 function comChatUI(){if(S.s!=='lchat')return;const ci=document.querySelector('#v #ci');if(!ci)return;
  const sb=document.querySelector('#v button[aria-label="Enviar"]'),chips=[...document.querySelectorAll('#v .chip[onclick^="lsend("]')],off=comToOff(S.a),res=comRestricted();
  if(res&&!off){if(ci.dataset.ph===undefined)ci.dataset.ph=ci.placeholder;ci.disabled=true;ci.placeholder=COM_MSG;if(sb)sb.disabled=true;chips.forEach(c=>{c.disabled=true;c.style.opacity='.5'})}
  else{if(ci.dataset.ph!==undefined){ci.placeholder=ci.dataset.ph;delete ci.dataset.ph}ci.disabled=false;if(sb)sb.disabled=false;chips.forEach(c=>{c.disabled=false;c.style.opacity=''})}
- if(res&&off&&ci.parentElement)ci.parentElement.insertAdjacentHTML('afterend','<p class="com-b px-4 pb-2 text-xs text-slate-500">Tienes una comisión pendiente. <button type="button" data-com="banner" class="font-bold text-brand underline">Reportar comisión</button></p>')}
+ if(res&&off&&ci.parentElement)ci.parentElement.insertAdjacentHTML('afterend','<p class="com-b px-4 pb-2 text-xs text-slate-500">Tienes una comisión pendiente. <button type="button" data-com="banner" class="font-bold text-brand underline">Registrar comisión</button></p>')}
 const comTransH=()=>{const c=COM.cfg;return c&&c.mode&&c.mode!=='off'?`<p class="com-b text-[11px] text-slate-500 mt-3 flex gap-1.5 items-start"><span aria-hidden="true">ℹ️</span><span>Comisión de servicio U2U: ${comPct(c.rate)} al confirmar la entrega</span></p>`:''};
 function comTransUI(){const h=comTransH();if(!h)return;let box=null;
  if(S.s==='publish')box=document.querySelector('#v .p-5');

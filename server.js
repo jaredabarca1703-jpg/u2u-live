@@ -391,6 +391,19 @@ io.on('connection', (socket) => {
     reply(r.res);
   });
 
+  /* Eliminar publicación propia: solo el dueño (o un admin) */
+  socket.on('product:delete', async (d, ack) => {
+    const reply = (o) => typeof ack === 'function' && ack(o);
+    const g = guard(socket);
+    if (g.err) return reply(g.err);
+    const pid = parseInt((d || {}).id, 10);
+    const p = products.get(pid);
+    if (!p) return reply({ error: 'Publicación no encontrada' });
+    if (p.ownerUid !== g.me.uid && !g.me.admin) return reply({ error: 'Solo puedes eliminar tus propias publicaciones' });
+    await removeProduct(pid);
+    reply({ ok: true });
+  });
+
   /* Chat privado: solo entre el interesado y el dueño del producto */
   socket.on('send', async (d, ack) => {
     const reply = (o) => typeof ack === 'function' && ack(o);
@@ -492,7 +505,7 @@ io.on('connection', (socket) => {
       from = String(d.from || '').slice(0, 10); to = String(d.to || '').slice(0, 10);
       base = p.rent * days;
     }
-    const total = base + 10 + (del === 'home' ? 15 : 0);
+    const total = base + (del === 'home' ? 15 : 0);
 
     const o = {
       id: newOrderId(), pid, t: p.t, ph: p.ph[0] || '', mode, total, days, del, from, to,

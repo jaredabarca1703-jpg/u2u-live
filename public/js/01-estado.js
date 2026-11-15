@@ -10,7 +10,7 @@ const SEL=[{n:'',r:0,c:0,car:'Estudiante UPC',cp:0,v:new Date().getFullYear(),ci
 const ME=0;
 const U=k=>'https://images.unsplash.com/photo-'+k+'?auto=format&fit=crop&w=600&q=80';
 let PR=[]; // el catálogo oficial y el de la comunidad llegan del servidor (seed.json + publicaciones)
-const ST={fav:[10,13],orders:[],chats:{10:[{m:0,t:'¡Hola! Sí, el dron tiene sus 3 baterías al 100% 🔋',h:'10:24'}],1:[{m:0,t:'¡Hola Jared! Sí, la cámara sigue disponible 😊',h:'10:24'}],3:[{m:1,t:'¿Sigue disponible el trípode?',h:'Ayer'},{m:0,t:'Sí, te espero en la puerta del campus',h:'Ayer'}]},off:{},mine:[]};
+const ST={fav:[10,13],orders:[],chats:{10:[{m:0,t:'¡Hola! Sí, el dron tiene sus 3 baterías al 100% 🔋',h:'10:24'}],1:[{m:0,t:'¡Hola! Sí, la cámara sigue disponible 😊',h:'10:24'}],3:[{m:1,t:'¿Sigue disponible el trípode?',h:'Ayer'},{m:0,t:'Sí, te espero en la puerta del campus',h:'Ayer'}]},off:{},mine:[]};
 try{Object.assign(ST,JSON.parse(localStorage.getItem('u2u6')||'{}'));PR=[...ST.mine,...PR]}catch(e){}
 const save=()=>{try{ST.mine=PR.filter(p=>p.id>100&&!p.remote);localStorage.setItem('u2u6',JSON.stringify(ST))}catch(e){toast('Memoria llena: no se guardó')}};
 const DK=[6.2,4.5,8.3,.6];PR.forEach(p=>{if(p.s!=ME)p.d=+(DK[SEL[p.s].cp]+((p.id*13)%9)/10).toFixed(1)});

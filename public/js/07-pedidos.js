@@ -10,7 +10,7 @@ function coOk(id,mode){if(LV.adm){toast('La cuenta oficial vende y modera: no co
  if(Object.values(LV.orders).some(o=>o.pid==id&&o.buyerId==LV.me.uid&&o.mode==m&&o.status=='pending')){toast('Ya tienes un pedido pendiente por este producto');MT='orders';root('msgs');return false}
  return true}
 function payLive(){if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
- M('<div class="bg-white w-full rounded-t-3xl p-8 text-center"><div class="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto"></div><p class="font-bold mt-4">Creando tu pedido...</p></div>');
+ M('<div class="bg-white w-full rounded-t-3xl p-8 text-center"><div class="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto"></div><p class="font-bold mt-4">Confirmando tu reserva...</p></div>');
  sock.emit('order:create',{pid:CO.id,mode:CO.mode=='alquiler'?'alquiler':'compra',del:CO.del,cp:CO.cp,from:CO.from,to:CO.to},r=>{
   if(!r||r.error){X();return toast((r&&r.error)||'No se pudo crear el pedido')}
   LV.orders[r.order.id]=r.order;pinModal(r.order);navDot()})}
@@ -71,3 +71,8 @@ function navDot(){const b=document.querySelector('#nav [aria-label="Mensajes"]')
  if(n&&!d){b.insertAdjacentHTML('beforeend','<span class="ud absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center"></span>');d=b.querySelector('.ud')}
  if(d){if(n)d.textContent=n;else d.remove()}}
 
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target && e.target.classList.contains('pin-in')) {
+    confirmOrder(e.target.dataset.o);
+  }
+});

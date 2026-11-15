@@ -22,7 +22,7 @@ function lsend(k,t){const i=$('#ci');t=(t||(i&&i.value)||'').trim();if(!t)return
  sock.emit('send',{pid:+pid,buyerId:bid,text:t},r=>{if(r&&r.error)toast(r.error)});
  if(i){i.value='';i.focus()}}
 V.lchat=key=>{const[pid,bid]=key.split('|'),p=(pid==0&&LV.off?offP():P(pid))||{id:0,t:'Producto no disponible en este dispositivo',ph:[],e:'📦',mode:'venta',price:0,s:0},c=LV.convs[key],own=bid!=LV.me.uid,
- title=own?esc(c?c.buyerName:'Interesado'):esc(SEL[p.s].n);
+ title=own?esc(c?c.buyerName:'Interesado'):(p.id?esc(SEL[p.s].n):(c&&c.buyerId===LV.me.uid?'Vendedor':'Interesado'));
  LV.chips=own?['¡Hola! Sí, sigue disponible 😊','Nos vemos en el punto seguro del campus','¿Cuánto ofreces?','¡Trato hecho! 🎉']:(p.id?aiChips(p):(pid==0?['¿Cómo publico mi primer producto?','Tengo una duda sobre un pedido','¿Cómo funciona el código de entrega?']:['¿Sigue disponible?']));
  return `<div class="h-full flex flex-col">${hd(title,'<span id="lst" class="text-xs font-semibold"></span>')}
  <div ${p.id?`onclick="openP(${p.id})"`:''} class="flex gap-3 items-center p-3 bg-slate-50 border-b cursor-pointer"><div class="w-12 h-12 rounded-lg overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="text-sm font-bold truncate">${esc(p.t)}</p>${p.id?`<p class="text-xs text-brand font-bold">${price(p)}</p>`:''}</div></div>

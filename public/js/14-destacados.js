@@ -33,7 +33,7 @@
   function stInfo(x) {
     const s = stOf(x);
     if (s === 'requested') return ['Pendiente', 'bg-amber-100 text-amber-700', 'Esperando revisión del equipo U2U.'];
-    if (s === 'pending_payment') return ['Pendiente', 'bg-amber-100 text-amber-700', 'Falta reportar tu pago de Yape.'];
+    if (s === 'pending_payment') return ['Pendiente', 'bg-amber-100 text-amber-700', 'Falta registrar tu pago de Yape.'];
     if (s === 'payment_reported') return ['En revisión', 'bg-sky-100 text-sky-700', 'Estamos verificando tu pago. Te avisaremos aquí.'];
     if (s === 'active') return ['Activo', 'bg-emerald-100 text-emerald-700', left(x.until)];
     if (s === 'rejected') return ['Rechazado', 'bg-red-100 text-red-600', x.rejectReason ? 'Motivo: ' + x.rejectReason : 'Sin motivo indicado.'];
@@ -50,7 +50,7 @@
     let own = '';
     if (mineP(p)) {
       const st = i ? `<div class="flex items-center gap-2 flex-wrap"><span class="text-[10px] font-bold px-2 py-1 rounded-full ${i[1]}">${i[0]}</span><span class="text-xs text-slate-600">${esc(i[2])}</span></div>` : '';
-      const btn = canAsk(p) ? `<button data-df="open" data-pid="${p.id}" class="btn !py-2.5 !text-sm mt-2">⭐ ${stOf(x) === 'rejected' ? 'Volver a solicitar destacado' : 'Destacar'}</button>` : (stOf(x) === 'pending_payment' && on() ? `<button data-df="open" data-pid="${p.id}" class="btn !py-2.5 !text-sm mt-2">Reportar mi pago</button>` : '');
+      const btn = canAsk(p) ? `<button data-df="open" data-pid="${p.id}" class="btn !py-2.5 !text-sm mt-2">⭐ ${stOf(x) === 'rejected' ? 'Volver a solicitar destacado' : 'Destacar'}</button>` : (stOf(x) === 'pending_payment' && on() ? `<button data-df="open" data-pid="${p.id}" class="btn !py-2.5 !text-sm mt-2">Registrar mi pago</button>` : '');
       if (st || btn) own = `<div class="mt-3 rounded-2xl p-3 border border-amber-200 bg-amber-50"><p class="text-xs font-bold text-amber-800 mb-1">Destacar publicación</p>${st}${btn}</div>`;
     } else if (LV.adm && p.official && on() && p.status !== 'sold') {
       own = `<button data-df="grant" data-pid="${p.id}" class="chip mt-3">⭐ Destacar sin cobro</button>`;
@@ -88,7 +88,7 @@
   function modalH() {
     const c = D.cur, p = P(c.pid), t = p ? esc(p.t) : 'tu publicación';
     const shell = (inner) => `<div class="bg-white w-full rounded-t-3xl p-6 pop max-h-[92%] overflow-y-auto no-sb" role="dialog" aria-modal="true" aria-labelledby="dft"><p id="dft" class="font-bold text-lg text-navy">⭐ Destacar publicación</p><p class="text-xs text-slate-500 truncate">${t}</p>${inner}</div>`;
-    if (c.step === 'done') return shell(`<div class="mt-4 rounded-2xl bg-emerald-50 text-emerald-800 p-4 text-sm">${paid() ? 'Recibimos tu reporte de pago. Queda <b>En revisión</b>; te avisaremos cuando el equipo U2U lo apruebe.' : 'Tu solicitud fue enviada. Queda <b>Pendiente</b> hasta que el equipo U2U la revise.'}</div><button data-df="close" class="btn mt-4">Listo</button>`);
+    if (c.step === 'done') return shell(`<div class="mt-4 rounded-2xl bg-emerald-50 text-emerald-800 p-4 text-sm">${paid() ? 'Recibimos tu registro de pago. Queda <b>En revisión</b>; te avisaremos cuando el equipo U2U lo apruebe.' : 'Tu solicitud fue enviada. Queda <b>Pendiente</b> hasta que el equipo U2U la revise.'}</div><button data-df="close" class="btn mt-4">Listo</button>`);
     if (c.step === 'pay') {
       const y = D.yape || {};
       if (!y.number) return shell(`<p class="text-sm text-slate-600 mt-4">No pudimos cargar los datos de pago. Cierra e inténtalo de nuevo en un momento.</p><button data-df="close" class="btn mt-4">Cerrar</button>`);
@@ -220,6 +220,9 @@
     else if (a === 'grant') askConfirm({ title: '¿Destacar sin cobro?', msg: 'Saldrá primero durante ' + days() + ' días.', ok: 'Sí, destacar', no: 'Volver', icon: 'star' }).then((y) => { if (y) admAct('admin/featured/' + pid + '/grant', {}, 'Publicación destacada'); });
   }, true);
   document.addEventListener('input', (e) => { const f = e.target && e.target.dataset && e.target.dataset.dff; if (f && D.cur) { D.cur.f[f] = e.target.value; setErr(f === 'op' ? 'operationNumber' : 'senderName', ''); } });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target && (e.target.id === 'df_op' || e.target.id === 'df_nm')) send();
+  });
 
   /* ---------- ganchos: catálogo, orden, sockets y ciclo de sesión ---------- */
   const _ar = addRemote; addRemote = function (d) {

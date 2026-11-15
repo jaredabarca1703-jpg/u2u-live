@@ -104,7 +104,8 @@ module.exports = function createFeatured(ctx) {
     if (h.length >= 3) { const r = no(429, 'RATE_LIMIT', 'Hiciste muchas solicitudes. Intenta de nuevo en un rato.'); r.body.retry = Math.ceil((3600e3 - (at - h[0])) / 1000); return r; }
     const paid = mode() === 'paid';
     const r = { id: newId(), pid, ownerUid: u.uid, ownerName: p.ownerName, t: p.t, kind: 'request', amount: paid ? priceCents() : 0, status: paid ? 'pending_payment' : 'requested', opNumber: '', senderName: '', createdAt: at, reportedAt: 0, verifiedAt: 0, activatedAt: 0, until: 0, refundDue: false, rejectReason: '' };
-    index(r); h.push(at); hits.set(u.uid, h); // sin await entre comprobar y registrar: no hay dos solicitudes abiertas de la misma publicación
+    index(r); h.push(at); hits.set(u.uid, h);
+    if (hits.size > 2000) for (const [k, arr] of hits) if (!arr.some(x => at - x < 3600e3)) hits.delete(k); // sin await entre comprobar y registrar: no hay dos solicitudes abiertas de la misma publicación
     if (!(await saveFeatured(r))) { unindex(r); h.pop(); return no(500, 'INVALID', 'No se pudo guardar tu solicitud. Inténtalo de nuevo.'); }
     console.log('[destacados] solicitud ' + r.status + ' ' + r.id);
     return { status: 200, body: { ok: true, featured: mine(r, at), ...(paid ? { yape: yape() } : {}) } };
@@ -119,6 +120,7 @@ module.exports = function createFeatured(ctx) {
     const at = now(), h = (rhits.get(uid) || []).filter((x) => at - x < 3600e3);
     if (h.length >= 5) { const e = no(429, 'RATE_LIMIT', 'Reportaste muchas veces. Intenta de nuevo en un rato.'); e.body.retry = Math.ceil((3600e3 - (at - h[0])) / 1000); return e; }
     h.push(at); rhits.set(uid, h);
+    if (rhits.size > 2000) for (const [k, arr] of rhits) if (!arr.some(x => at - x < 3600e3)) rhits.delete(k);
     body = body || {};
     const name = clean(body.senderName, 60), opRaw = opn.normalize(body.operationNumber);
     if (name.length < 2) return no(400, 'INVALID', 'Escribe el nombre o celular del titular (2 a 60 caracteres).', 'senderName');

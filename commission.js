@@ -25,6 +25,7 @@ module.exports = function createCommission(ctx) {
   const { orders, products, saveOrder, pushOrder, setStatus, emitTo } = ctx;
   const env = ctx.env || process.env, now = ctx.now || Date.now;
   const isVerified = ctx.isVerified || (() => true);
+  const isOfficial = ctx.isOfficial || (() => false);
   const MAX_FAILS = ctx.maxPinFails || 5, LOCK_MS = ctx.lockMs || 5 * 60e3;
 
   const mode = () => { const m = String(env.COMMISSION_MODE || 'off').trim().toLowerCase(); return m === 'shadow' || m === 'active' ? m : 'off'; };
@@ -74,7 +75,7 @@ module.exports = function createCommission(ctx) {
   const baseCentsOf = (o) => (Number.isInteger(o.baseCents) ? o.baseCents : Math.max(0, Math.round((Number(o.total) || 0) - 10 - (o.del === 'home' ? 15 : 0)) * 100)); // pedidos anteriores sin baseCents
   function create(o) {
     const m = mode();
-    if (m === 'off' || o.commission) return null; // una sola comisión por pedido
+    if (m === 'off' || o.commission || isOfficial(o.ownerId)) return null; // cuenta oficial exenta de comisión
     const base = baseCentsOf(o), r = rate(), amount = feeCents(base, r);
     if (amount < 1) return null;
     o.commission = { amount, rate: r, base, status: m === 'shadow' ? 'shadow' : 'pending_commission', createdAt: now(), reportedAt: 0, paidAt: 0, opNumber: '', senderName: '', rejectReason: '' };
@@ -139,6 +140,7 @@ module.exports = function createCommission(ctx) {
     const t = now(), h = (hits.get(uid) || []).filter((x) => t - x < 3600e3);
     if (h.length >= 5) { const r = no(429, 'RATE_LIMIT', 'Reportaste muchas veces. Intenta de nuevo en un rato.'); r.body.retry = Math.ceil((3600e3 - (t - h[0])) / 1000); return r; }
     h.push(t); hits.set(uid, h);
+    if (hits.size > 2000) for (const [k, arr] of hits) if (!arr.some(x => t - x < 3600e3)) hits.delete(k);
     body = body || {};
     const name = clean(body.senderName, 60), opRaw = opn.normalize(body.operationNumber);
     if (name.length < 2) return no(400, 'INVALID', 'Escribe el nombre o celular del titular (2 a 60 caracteres).', 'senderName');
