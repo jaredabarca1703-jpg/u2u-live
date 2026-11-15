@@ -1,12 +1,23 @@
 /* =================== NAVEGACIÓN =================== */
 let S={s:'login',a:null,st:[],vm:'venta'},F={tab:'Todo',cat:'Todo',cp:-1,sort:'d',q:'',car:'Todas',cond:'Todos',src:'all'},CO={},PUB={},PT='pub',STEP=1;
 const NAVS=['home','map','msgs','profile'];
-function nav(s,a){const v=$('#v');S.st.push({s:S.s,a:S.a,y:v?v.scrollTop:0});S.s=s;S.a=a;R()}
+function getScrollY(){const v=$('#v');return (v&&v.scrollTop)||window.scrollY||(document.documentElement&&document.documentElement.scrollTop)||0}
+function restoreScroll(y){
+ if(y==null)return;
+ const v=$('#v');
+ const apply=()=>{if(v)v.scrollTop=y;if(window.scrollY!==y)window.scrollTo(0,y);if(document.documentElement&&document.documentElement.scrollTop!==y)document.documentElement.scrollTop=y};
+ apply();
+ requestAnimationFrame(()=>{apply();setTimeout(apply,35);setTimeout(apply,120)});
+}
+function nav(s,a){S.st.push({s:S.s,a:S.a,y:getScrollY()});S.s=s;S.a=a;R()}
 function back(){const p=S.st.pop()||{s:'home',y:0};S.s=p.s;S.a=p.a;R(false,p.y||0)}
 function root(s,a){S.st=[];S.s=s;S.a=a;R()}
-function R(keep,restoreY){const v=$('#v'),y=v.scrollTop,xs=keep?[...v.querySelectorAll('.no-sb')].map(e=>e.scrollLeft):[];
- if(!keep){v.style.animation='none';v.offsetWidth;v.style.animation=''} /* R(1) = repintado por eventos del servidor: sin animación de entrada ni saltos */
- v.innerHTML=V[S.s](S.a);v.scrollTop=keep?y:(restoreY!==undefined?restoreY:0);
+function R(keep,restoreY){const v=$('#v'),y=getScrollY(),xs=keep?[...v.querySelectorAll('.no-sb')].map(e=>e.scrollLeft):[];
+ if(!keep&&restoreY===undefined){v.style.animation='none';v.offsetWidth;v.style.animation=''} /* R(1) = repintado por eventos del servidor: sin animación de entrada ni saltos */
+ v.innerHTML=V[S.s](S.a);
+ if(keep){v.scrollTop=y;v.querySelectorAll('.no-sb').forEach((e,i)=>{if(xs[i])e.scrollLeft=xs[i]})}
+ else if(restoreY!==undefined){restoreScroll(restoreY)}
+ else{v.scrollTop=0;window.scrollTo(0,0)}
  if(keep)v.querySelectorAll('.no-sb').forEach((e,i)=>{if(xs[i])e.scrollLeft=xs[i]});
  const n=$('#nav');n.classList.toggle('hidden',!NAVS.includes(S.s));
  const b=(s,i,l)=>`<button onclick="root('${s}')" class="flex flex-col items-center gap-0.5 ${S.s==s?'text-brand font-semibold':''}"><i data-lucide="${i}"></i>${l}</button>`;
@@ -88,7 +99,7 @@ chat(id){const p=P(id),s=SEL[p.s];return `<div class="h-full flex flex-col">${hd
  <div id="ml" class="flex-1 overflow-y-auto no-sb p-4 space-y-2 bg-slate-50"></div>
  <div class="flex gap-2 overflow-x-auto no-sb px-3 pt-2 items-center"><span class="text-[10px] font-bold text-purple-600 shrink-0">✨ IA sugiere</span>${aiChips(p).map(q=>`<button class="chip" onclick="send(${id},'${q}')">${q}</button>`).join('')}</div>
  <div class="flex gap-2 p-3"><input id="ci" onkeydown="event.key=='Enter'&&send(${id})" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-100 rounded-full px-4 py-3 text-sm outline-none"><button onclick="send(${id})" class="bg-brand text-white rounded-full p-3"><i data-lucide="send" class="w-5"></i></button></div></div>`},
-msgs(){const k=Object.keys(ST.chats);return `<div class="p-5 pb-28"><h1 class="text-2xl font-bold mb-4">Mensajes</h1>${k.map(id=>{const p=P(id),c=ST.chats[id],l=c[c.length-1];return p&&l?`<div onclick="nav('chat',${id})" class="flex gap-3 items-center py-3 border-b cursor-pointer"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm">${SEL[p.s].n}</p><p class="text-xs text-slate-500 truncate">${esc(p.t)}</p><p class="text-xs truncate ${l.m?'text-slate-400':'text-slate-700'}">${l.m?'Tú: ':''}${esc(l.t)}</p></div><span class="text-[10px] text-slate-400">${l.h}</span></div>`:''}).join('')||'<p class="text-center text-slate-400 py-16">Aún no tienes conversaciones.<br>Contacta a un vendedor desde un producto.</p>'}</div>`},
+msgs(){const k=Object.keys(ST.chats);return `<div class="p-5 pb-28"><h1 class="text-2xl font-bold mb-4">Mensajes</h1>${k.map(id=>{const p=P(id),c=ST.chats[id],l=c[c.length-1];return p&&l?`<div onclick="nav('chat',${id})" class="flex gap-3 items-center py-3 border-b cursor-pointer"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm">${SEL[p.s].n}</p><p class="text-xs text-slate-500 truncate">${esc(p.t)}</p><p class="text-xs truncate ${l.m?'text-slate-400':'text-slate-700'}">${l.m?'Tú: ':''}${esc(l.t)}</p></div><div class="flex flex-col items-end gap-1"><span class="text-[10px] text-slate-400">${l.h}</span><button onclick="event.stopPropagation();delConvAsk('${id}')" class="p-1 text-slate-300 hover:text-red-400 transition" title="Borrar conversación"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div></div>`:''}).join('')||'<p class="text-center text-slate-400 py-16">Aún no tienes conversaciones.<br>Contacta a un vendedor desde un producto.</p>'}</div>`},
 map(){const l=mapL().sort((a,b)=>a.d-b.d);
  return `<div class="relative h-full overflow-hidden"><div id="map" class="absolute inset-0 z-0"></div>
  <div class="absolute top-4 inset-x-4 z-10"><label class="bg-white rounded-2xl shadow-lg px-4 py-3 flex items-center gap-2 text-sm"><i data-lucide="search" class="w-5 text-slate-400"></i><input value="${esc(F.q)}" onchange="F.q=this.value;R()" placeholder="Buscar en esta zona" class="flex-1 outline-none bg-transparent"></label><div class="flex gap-2 mt-2">${['Todo','Venta','Alquiler'].map(t=>`<button onclick="F.tab='${t}';R()" class="chip shadow ${F.tab==t?'on':''}">${t=='Todo'?'Todos':t}</button>`).join('')}</div><div class="flex gap-2 mt-2 overflow-x-auto no-sb">${['Todos',...CAMP.map(c=>c.replace('UPC ',''))].map((c,i)=>`<button class="chip shadow ${F.cp==i-1?'on':''}" onclick="F.cp=${i-1};R()">${c}</button>`).join('')}</div></div>

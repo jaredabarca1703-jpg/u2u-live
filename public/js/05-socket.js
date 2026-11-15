@@ -19,7 +19,16 @@ function liveStart(){if(!window.io)return;
  sock.on('denied',()=>{if(LV.me)sessionOut('Tu sesión expiró. Inicia sesión de nuevo.')});
  sock.on('disconnect',()=>{netUI(1);presUI()});sock.on('connect_error',()=>netUI(1));sock.io.on('reconnect_attempt',()=>netUI(1));
  sock.on('presence',p=>{LV.pres=p;presUI()});
- sock.on('history',l=>{LV.ld.h=0;const old=LV.convs;LV.convs={};l.forEach(c=>{c.un=old[c.key]?old[c.key].un:unSeen(c);LV.convs[c.key]=c});if(S.s=='msgs')R(1);if(S.s=='lchat')lchatR(S.a);navDot()});
+ sock.on('history',l=>{LV.ld.h=0;const old=LV.convs;LV.convs={};
+  l.forEach(c=>{
+   const delAt=DEL_CONVS[c.key]||0;
+   const lm=(c.msgs&&c.msgs.length)?c.msgs[c.msgs.length-1]:null;
+   if(delAt&&lm&&lm.ts<=delAt)return;
+   if(c.msgs)c.msgs=c.msgs.filter(m=>!DEL_MSGS[m.id]);
+   if(!c.msgs||!c.msgs.length)return;
+   c.un=old[c.key]?old[c.key].un:unSeen(c);LV.convs[c.key]=c
+  });
+  if(S.s=='msgs')R(1);if(S.s=='lchat')lchatR(S.a);navDot()});
  sock.on('orders',l=>{LV.ld.o=0;LV.orders={};l.forEach(o=>LV.orders[o.id]=o);if(S.s=='msgs'||S.s=='profile')R(1);navDot()});
  sock.on('order',onOrder);
  sock.on('blocked',()=>sessionOut('Tu cuenta fue bloqueada por incumplir las normas de la comunidad.'));

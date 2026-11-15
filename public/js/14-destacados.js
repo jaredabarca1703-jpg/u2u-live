@@ -236,7 +236,7 @@
     const fa = fOn(a), fb = fOn(b); if (fa !== fb) return fa ? -1 : 1;
     return fa ? (D.rank[a.id] ?? 1e9) - (D.rank[b.id] ?? 1e9) : 0;
   };
-  const _R2 = R; R = function (keep) { _R2(keep); decorate(); };
+  const _R2 = R; R = function (...args) { _R2(...args); decorate(); };
   const _gr = gridR; gridR = function () { _gr(); decorate(); };
   const _ao = authOk; authOk = function (j, dest) { const r = _ao(j, dest); load(); return r; };
   const _so = sessionOut; sessionOut = function (m) { reset(); return _so(m); };
