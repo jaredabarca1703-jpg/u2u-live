@@ -4,13 +4,24 @@
  * aquí solo se muestra y se valida primero en el cliente para no gastar intentos. Script clásico, sin módulos; carga después de 10 y 11. */
 
 /* ---------- listas (iguales a las del servidor: auth.js) ---------- */
-const CAREERS=['Ing. Civil','Arquitectura','Sistemas','Negocios','Comunicaciones','Diseño de Moda','Salud','Otra'];
-const CAREER_LB={Sistemas:'Ing. de Sistemas',Otra:'Otra carrera'};
+const UPC_FACULTIES=[
+  {f:'Ingeniería',items:['Ingeniería Civil', 'Ingeniería de Sistemas de Información', 'Ingeniería de Software', 'Ingeniería Industrial', 'Ingeniería Electrónica', 'Ingeniería Mecatrónica', 'Ingeniería Ambiental', 'Ingeniería Biomédica', 'Ingeniería de Gestión Empresarial', 'Ingeniería de Gestión Minera', 'Ciencias de la Computación']},
+  {f:'Negocios',items:['Administración y Negocios Internacionales', 'Administración y Finanzas', 'Administración y Marketing', 'Administración y Recursos Humanos', 'Contabilidad y Administración', 'Economía y Finanzas', 'Economía y Negocios Internacionales', 'Gastronomía y Gestión Culinaria', 'Hotelería y Administración', 'Turismo y Administración']},
+  {f:'Ciencias de la Salud',items:['Medicina', 'Odontología', 'Nutrición y Dietética', 'Terapia Física', 'Psicología', 'Medicina Veterinaria', 'Biología', 'Farmacia y Bioquímica']},
+  {f:'Comunicaciones',items:['Comunicación Audiovisual y Medios Interactivos', 'Comunicación y Periodismo', 'Comunicación y Publicidad', 'Comunicación e Imagen Empresarial', 'Comunicación y Marketing', 'Comunicación y Fotografía']},
+  {f:'Arquitectura y Diseño',items:['Arquitectura', 'Diseño Profesional de Interiores', 'Diseño Profesional Gráfico', 'Diseño y Gestión en Moda', 'Diseño de Videojuegos']},
+  {f:'Derecho y Ciencias Sociales',items:['Derecho', 'Relaciones Internacionales']},
+  {f:'Educación y Artes',items:['Educación y Gestión del Aprendizaje', 'Música', 'Artes Escénicas']},
+  {f:'Otros',items:['Otra']}
+];
+const CAREER_LB={'Ing. Civil':'Ingeniería Civil',Sistemas:'Ing. de Sistemas',Otra:'Otra carrera'};
 const SEDES=['Monterrico','San Isidro','Villa','San Miguel']; /* mismo orden que CAMP (sin «UPC ») */
 const careerLb=c=>CAREER_LB[c]||c,cycleLb=c=>c=='Egresado'?'Egresado':'Ciclo '+c,campusIdx=c=>SEDES.indexOf(c);
-const CAR_O=CAREERS.map(c=>[c,careerLb(c)]),SED_O=SEDES.map(s=>[s,'UPC '+s]),CYC_O=[1,2,3,4,5,6,7,8,9,10].map(n=>[String(n),'Ciclo '+n]);
+const SED_O=SEDES.map(s=>[s,'UPC '+s]),CYC_O=[1,2,3,4,5,6,7,8,9,10].map(n=>[String(n),'Ciclo '+n]);
 const FLB='text-xs font-semibold text-slate-600',FAU='autocapitalize="none" autocorrect="off" spellcheck="false"';
 const optsH=(l,cur,ph)=>(ph?`<option value="">${ph}</option>`:'')+l.map(o=>`<option value="${esc(o[0])}" ${cur==o[0]?'selected':''}>${esc(o[1])}</option>`).join('');
+/* Opciones agrupadas por facultad (<optgroup>) */
+const careerOptsH=(cur,ph)=>(ph?`<option value="">${ph}</option>`:'')+UPC_FACULTIES.map(g=>`<optgroup label="${esc(g.f)}">`+g.items.map(c=>`<option value="${esc(c)}" ${cur==c?'selected':''}>${esc(careerLb(c))}</option>`).join('')+'</optgroup>').join('');
 const pwField=(id,ac,ph,oi,val)=>`<div class="relative"><input id="${id}" type="password" class="inp" style="padding-right:2.75rem" maxlength="128" autocomplete="${ac}" placeholder="${ph}" value="${esc(val||'')}" ${oi?`oninput="${oi}"`:''}><button type="button" aria-label="Mostrar u ocultar contraseña" class="absolute right-3 text-slate-400" style="top:1.05rem" onclick="const i=$('#${id}');i.type=i.type=='password'?'text':'password'"><i data-lucide="eye" class="w-5 h-5"></i></button></div>`;
 /* Correo UPC: minúsculas, sin espacios, un solo @ y dominio EXACTO upc.edu.pe (misma regla que el servidor; el servidor decide siempre) */
 const UPC_RE=/^[a-z0-9][a-z0-9._-]{0,63}@upc\.edu\.pe$/;
@@ -56,7 +67,7 @@ function regForm(){const r=REG,egr=r.cond=='egresado';
  <label class="${FLB}" for="a_mail">Correo UPC</label><input id="a_mail" type="email" class="inp" maxlength="254" autocomplete="email" inputmode="email" ${FAU} placeholder="usuario@upc.edu.pe" value="${esc(r.email)}" oninput="REG.email=this.value">
  <label class="${FLB}" for="a_pw">Contraseña</label>${pwField('a_pw','new-password','Mínimo 8 caracteres','REG.pw=this.value',r.pw)}
  <p class="${FLB}">Soy</p><div class="flex gap-2 mt-1 mb-3">${[['estudiante','Estudiante'],['egresado','Egresado']].map(a=>`<button type="button" class="chip ${r.cond==a[0]?'on':''}" aria-pressed="${r.cond==a[0]}" onclick="regCond('${a[0]}')">${a[1]}</button>`).join('')}</div>
- <label class="${FLB}" for="a_car">Carrera</label><select id="a_car" class="inp" onchange="REG.career=this.value">${optsH(CAR_O,r.career,'Elige tu carrera')}</select>
+ <label class="${FLB}" for="a_car">Carrera</label><select id="a_car" class="inp" onchange="REG.career=this.value">${careerOptsH(r.career,'Elige tu carrera')}</select>
  ${egr?'<p class="text-xs text-slate-500 mb-3">Ciclo: <b>Egresado</b></p>':`<label class="${FLB}" for="a_cyc">Ciclo</label><select id="a_cyc" class="inp" onchange="REG.cycle=this.value">${optsH(CYC_O,r.cycle,'Elige tu ciclo')}</select>`}
  <label class="${FLB}" for="a_cam">Sede</label><select id="a_cam" class="inp" onchange="REG.campus=this.value">${optsH(SED_O.map(o=>[o[0],o[1]]),r.campus,'Elige tu sede')}</select>
  <label class="flex gap-2 items-start text-xs mt-1"><input id="a_t1" type="checkbox" class="mt-0.5" ${r.t1?'checked':''} onchange="REG.t1=this.checked"><span>Acepto los <button type="button" class="font-bold text-brand underline" onclick="nav('legal')">Términos y Privacidad</button>.</span></label>
@@ -169,7 +180,7 @@ V.cuenta=()=>{const u=ACC;if(!u)return hd('Mi cuenta')+'<p class="p-6 text-cente
  return hd('Mi cuenta')+`<div class="p-5 pb-24">${acctBox()}
  ${u.admin?'<p class="text-sm text-slate-500 mt-4">La cuenta oficial se configura en el servidor.</p>':`<form onsubmit="event.preventDefault();acSave()" novalidate class="mt-4">
  <label class="${FLB}" for="c_name">Nombre</label><input id="c_name" class="inp" maxlength="24" autocomplete="name" value="${esc(AF.name)}" oninput="AF.name=this.value"><p class="text-[11px] text-slate-400 -mt-2 mb-3">Un cambio de nombre se verá en tus publicaciones y chats nuevos.</p>
- ${upc?`<label class="${FLB}" for="c_car">Carrera</label><select id="c_car" class="inp" onchange="AF.career=this.value">${optsH(CAR_O,AF.career)}</select>
+ ${upc?`<label class="${FLB}" for="c_car">Carrera</label><select id="c_car" class="inp" onchange="AF.career=this.value">${careerOptsH(AF.career,'Elige tu carrera')}</select>
  <label class="${FLB}" for="c_cyc">Ciclo</label><select id="c_cyc" class="inp" onchange="AF.cycle=this.value" ${egr?'disabled':''}>${optsH(egr?[['Egresado','Egresado']]:CYC_O.concat([['Egresado','Egresado']]),AF.cycle)}</select>
  <label class="${FLB}" for="c_cam">Sede</label><select id="c_cam" class="inp" onchange="AF.campus=this.value">${optsH(SED_O,AF.campus)}</select>
  <p class="text-[11px] text-slate-400 -mt-2 mb-3">${vl.length?'Visible para otros usuarios: '+vl.join(', ')+'. Tu correo nunca se muestra.':'Tu carrera, ciclo y sede no son visibles para otros usuarios. Tu correo nunca se muestra.'}</p>`:'<p class="text-xs text-slate-500 mb-3">Tu cuenta es anterior al registro con correo UPC: por ahora solo puedes cambiar el nombre.</p>'}

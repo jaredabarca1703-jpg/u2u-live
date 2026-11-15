@@ -28,7 +28,25 @@ const WEAK = new Set(['12345678', '123456789', '1234567890', 'password', 'contra
 const UPC_DOMAIN = 'upc.edu.pe', TERMS_VERSION = '1.0';
 const CODE_MS = 10 * 60e3, CODE_MAX_FAILS = 5, RESEND_MS = 60e3;
 const CAMPUSES = ['Monterrico', 'San Isidro', 'Villa', 'San Miguel'];
-const REG_CAREERS = ['Ing. Civil', 'Arquitectura', 'Sistemas', 'Negocios', 'Comunicaciones', 'Diseño de Moda', 'Salud', 'Otra'];
+const REG_CAREERS = [
+  // Ingeniería
+  'Ingeniería Civil', 'Ingeniería de Sistemas de Información', 'Ingeniería de Software', 'Ingeniería Industrial', 'Ingeniería Electrónica', 'Ingeniería Mecatrónica', 'Ingeniería Ambiental', 'Ingeniería Biomédica', 'Ingeniería de Gestión Empresarial', 'Ingeniería de Gestión Minera', 'Ciencias de la Computación',
+  // Negocios
+  'Administración y Negocios Internacionales', 'Administración y Finanzas', 'Administración y Marketing', 'Administración y Recursos Humanos', 'Contabilidad y Administración', 'Economía y Finanzas', 'Economía y Negocios Internacionales', 'Gastronomía y Gestión Culinaria', 'Hotelería y Administración', 'Turismo y Administración',
+  // Ciencias de la Salud
+  'Medicina', 'Odontología', 'Nutrición y Dietética', 'Terapia Física', 'Psicología', 'Medicina Veterinaria', 'Biología', 'Farmacia y Bioquímica',
+  // Comunicaciones
+  'Comunicación Audiovisual y Medios Interactivos', 'Comunicación y Periodismo', 'Comunicación y Publicidad', 'Comunicación e Imagen Empresarial', 'Comunicación y Marketing', 'Comunicación y Fotografía',
+  // Arquitectura y Diseño
+  'Arquitectura', 'Diseño Profesional de Interiores', 'Diseño Profesional Gráfico', 'Diseño y Gestión en Moda', 'Diseño de Videojuegos',
+  // Derecho y Ciencias Sociales
+  'Derecho', 'Relaciones Internacionales',
+  // Educación y Artes
+  'Educación y Gestión del Aprendizaje', 'Música', 'Artes Escénicas',
+  'Otra',
+  // Compatibilidad con cuentas existentes:
+  'Ing. Civil', 'Sistemas', 'Negocios', 'Comunicaciones', 'Diseño de Moda', 'Salud'
+];
 const CYCLES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 /* Correo (bloque 6) */
