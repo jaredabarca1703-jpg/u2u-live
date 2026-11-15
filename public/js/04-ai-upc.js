@@ -14,18 +14,38 @@ function notifM(){const n=[['sparkles','Bajó el precio','El dron DJI Mini 3 Pro
  M(`<div class="bg-white w-full rounded-t-3xl p-5 pop"><p class="font-bold text-lg mb-2 flex items-center gap-2">Notificaciones <span class="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">✨ filtradas por IA</span></p>${n.map(a=>`<div onclick="nGo(${a[3]})" class="flex gap-3 py-3 border-b cursor-pointer"><span class="w-9 h-9 rounded-full bg-blue-50 text-brand grid place-items-center shrink-0"><i data-lucide="${a[0]}" class="w-4"></i></span><div><p class="font-semibold text-sm">${a[1]}</p><p class="text-xs text-slate-500">${a[2]}</p></div></div>`).join('')}</div>`)}
 let AIC=[{r:'ai',t:`¡Habla! Soy U2U AI ✨, tu pata upecino. Dime qué necesitas para este ciclo (curso, tu presupuesto o en qué campus estudias) y te saco las fijas al toque en las 4 sedes de UPC.`,n:999,c:[]}],AIB=0;
 const nrm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-const STOP='para tengo busco algo necesito quiero hasta soles campus estoy dame recomiendas recomienda conviene alquilar comprar alquiler donde como unos unas este esta pero mejor barato cerca miguel monterrico isidro villa ayudame encontrar quien tiene'.split(' ');
-const SYN=[[/topograf|terreno|aere|mapeo|nivelac/,'dron nivel camara'],[/calcul|examen|ecuacion/,'calculadora'],[/obra|visita|campo/,'casco botas'],[/laborator|quimic|medic|salud/,'mandil scrub'],[/plano|dibuj|arquitect|maqueta/,'regla escalimetro dibujo'],[/program|software|codigo|laptop|computad/,'macbook ipad monitor teclado arduino'],[/film|corto|video|foto|audiovis|graba/,'camara tripode microfono dron'],[/costur|moda/,'maquina coser'],[/libro|apunte|estudi|curso|hidraul|costos/,'libro apuntes libros'],[/ilustr|diseno/,'wacom tablet ipad']];
+const STOP='para tengo busco algo necesito quiero hasta soles campus estoy dame recomiendas recomienda cual cuales conviene alquilar comprar alquiler donde como unos unas este esta pero mejor barato cerca miguel monterrico isidro villa ayudame encontrar quien tiene'.split(' ');
+const SYN=[
+ [/construcc|civil|edificac|obra|visita|campo|estructur/,'casco botas nivel topcon epp regla escalimetro estatica libros'],
+ [/topograf|terreno|aere|mapeo|nivelac/,'dron nivel camara topcon tripode'],
+ [/calcul|examen|ecuacion|mate|matematica|fisica|estat|dinamic/,'calculadora casio hpprime libros apuntes'],
+ [/laborator|quimic|medic|salud|enferm|biolog|farmac/,'mandil scrub bata'],
+ [/plano|dibuj|arquitect|maqueta|taller|interiores/,'regla escalimetro dibujo wacom cutter'],
+ [/program|software|codigo|laptop|computad|sistem|informat/,'macbook ipad monitor teclado arduino ram mouse'],
+ [/film|corto|video|foto|audiovis|graba|cine|comunicac/,'camara tripode microfono dron luces lente'],
+ [/costur|moda/,'maquina coser tela'],
+ [/libro|apunte|estudi|curso|hidraul|costos/,'libro apuntes libros estatica'],
+ [/ilustr|diseno|grafic/,'wacom tablet ipad lapiz']
+];
 function aiFind(q){const n=nrm(q),un=((LV.me&&LV.me.name)||'').split(' ')[0]||'amigo';
+ if(/^(jaj+|jeje+|xd|lol|jaja)/.test(n))return{t:`¡Jajaja qué fue ${un}! 😂 Dime qué necesitas salvar hoy para el ciclo y te saco las fijas al toque.`,c:[]};
+ if(/^(gracias|buena\b|chevere|genial|bravazo|te pasaste)/.test(n))return{t:`¡De nada ${un}! 💪 Para eso estamos los upecinos. Si te falta algo más para el ciclo, pásame la voz nomás.`,c:[]};
+ if(/^(ok|vale|dale|listo|ya|bien)\W*$/.test(n))return{t:`¡De una ${un}! Dime qué buscas: una calculadora para mate, tu mandil de lab, libros o equipo para tu carrera.`,c:[]};
  if(/^(hola|buenas|hey|que tal|habla)/.test(n))return{t:`¡Habla ${un}! ¿Qué necesitas salvar hoy para el ciclo? Dime tu curso, presupuesto o sede y te lo busco al toque.`,c:[]};
  if(/public|subir|vender mi/.test(n)&&!/compr/.test(n))return{t:'Fácil, bro: dale al botón "+" y sube tu foto. Vision AI detecta el artículo al instante, completa la ficha técnica y te sugiere un precio justo de mercado ✨',c:[]};
  const b=n.match(/(?:s\/\s*)(\d{2,5})|(\d{2,5})\s*soles|(?:hasta|tengo|con)\s*(\d{2,5})/)||[],B=+(b[1]||b[2]||b[3])||0,cp=CAMP.findIndex(c=>n.includes(nrm(c.replace('UPC ','')))),rent=/alquil|prestad|temporal/.test(n),buy=/compr|quedarme/.test(n);
  let ex=n;SYN.forEach(x=>{if(x[0].test(n))ex+=' '+x[1]});
  const tk=ex.split(/\W+/).filter(w=>w.length>3&&!/^\d+$/.test(w)&&!STOP.includes(w));
  const l=PR.map(p=>{const h=nrm(p.t+' '+p.desc+' '+p.cat);let sc=tk.length?0:1;tk.forEach(w=>{if(h.includes(w))sc+=2});return{p,sc,pr:rent?(p.rent||0):(p.price||p.rent||0)}}).filter(o=>o.sc>0&&o.p.status!='sold'&&(!B||(o.pr&&o.pr<=B))&&(cp<0||SEL[o.p.s].cp==cp)&&(!rent||o.p.mode!='venta')&&(!buy||o.p.mode!='alquiler')).sort((a,b)=>b.sc-a.sc||a.p.d-b.p.d);
- if(!l.length)return{t:`Uff ${un}, no encontré coincidencias exactas en este momento 😕. Prueba con otra palabra clave o publica tu pedido: le llegará una alerta a la gente de tu carrera en los 4 campus.`,c:[]};
+ if(!l.length){
+  if(/construcc|civil|obra/.test(n))return{t:`Para cursos de construcción o civil en la UPC te piden sí o sí tu EPP (casco con barbiquejo, botas punta de acero) o nivel topográfico si tienes salida a campo 👷. Ahorita no veo uno disponible exactamente con ese nombre, pero puedes publicar tu pedido tocando '+' y le avisamos a tus compañeros de sede.`,c:[]};
+  return{t:`Uff ${un}, no encontré coincidencias exactas en este momento 😕. Prueba con otra palabra clave o publica tu pedido: le llegará una alerta a la gente de tu carrera en los 4 campus.`,c:[]};
+ }
  const top=l.slice(0,3).map(o=>o.p),p0=top[0];
- let t=`¡Buena, ${un}! Te encontré ${l.length} ${l.length>1?'fijas':'buena opción'} ${cp>=0?'en '+CAMP[cp]:'en los campus UPC'}${B?' con tu presupuesto de '+sol(B):''}. ${top.length>1?'Chapa estas:':'Esta es la más recomendada:'}`;
+ let intro=top.length>1?'Chapa estas opciones:':'Esta es la más recomendada:';
+ if(/construcc|civil|obra/.test(n))intro='Para tu curso de construcción / civil te salvan estas fijas para visitas a obra y laboratorio:';
+ else if(/calcul|mate|fisica/.test(n))intro='Para salvar mate o cálculo te recomiendo estas herramientas:';
+ let t=`¡Buena, ${un}! ${intro}${cp>=0?' (en '+CAMP[cp]+')':''}${B?' ajustado a tu presupuesto de '+sol(B):''}.`;
  if(p0.price&&p0.rent&&!rent&&!buy)t+=` Tip upecino: si solo lo necesitas para la semana de parciales o finales (menos de ${Math.ceil(p0.price/p0.rent)} días), te conviene alquilarlo y ahorras plata.`;
  else if(fairPct(p0)>=10)t+=` Ojo: "${p0.t}" está ${fairPct(p0)}% más barato que en tienda.`;
  return{t,c:top.map(p=>p.id)}}

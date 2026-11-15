@@ -52,10 +52,36 @@ localLogin(){const u=LV.pref||{};return `<div class="px-7 pt-14 pb-8"><img src="
  <button class="btn" onclick="loginLocal()">Entrar</button>
  <p id="pres" class="text-center text-xs text-slate-400 mt-4"></p>
  <div class="grid grid-cols-3 gap-2 mt-6 text-center text-[11px] text-slate-600">${[['🛍️','Compra y alquila'],['📸','Publica con IA'],['🔐','Entrega con código']].map(a=>`<div class="bg-blue-50 rounded-2xl py-3"><div class="text-xl">${a[0]}</div>${a[1]}</div>`).join('')}</div></div>`},
-home(){const l=HL();
- return `<div class="pb-28"><div class="px-5 pt-7 flex items-start justify-between"><div><h1 class="text-[26px] font-bold text-navy leading-tight">Hola, ${esc(uname())} <span class="text-xl">👋</span></h1><p class="text-[17px] text-slate-500 mt-1">¿Qué necesitas este ciclo?</p><button onclick="sedeM()" class="mt-2 text-xs font-bold bg-blue-50 text-brand rounded-full px-3 py-1.5">📍 ${F.cp<0?'Todas las sedes UPC':CAMP[F.cp]} ▾</button></div>
-  <button onclick="notifM()" aria-label="Notificaciones" class="relative p-2 rounded-full bg-blue-50 text-brand mt-1"><i data-lucide="bell"></i><span class="absolute top-1.5 right-2 w-2 h-2 bg-pink-500 rounded-full"></span></button></div>
- <div class="px-5 mt-5"><div class="flex items-center bg-white rounded-2xl px-4 shadow-[0_6px_16px_rgba(30,42,120,.12)] border border-slate-100 focus-within:ring-2 focus-within:ring-brand/30"><i data-lucide="search" class="w-5 text-slate-400"></i><input value="${esc(F.q)}" oninput="F.q=this.value;gridR()" placeholder="Buscar productos" class="w-full bg-transparent py-3.5 px-3 text-[15px] outline-none"><button onclick="filtM()" aria-label="Filtros" class="text-slate-500"><i data-lucide="sliders-horizontal" class="w-5"></i></button></div></div>
+home(){const l=HL(),isQ=Boolean(F.q&&F.q.trim());
+ return `<div class="pb-28">
+  <div class="px-5 pt-7 flex items-start justify-between">
+   <div>
+    <h1 class="text-[26px] font-bold text-navy leading-tight">Hola, ${esc(uname())} <span class="text-xl">👋</span></h1>
+    <p class="text-[17px] text-slate-500 mt-1">¿Qué necesitas este ciclo?</p>
+    <button onclick="sedeM()" class="mt-2 text-xs font-bold bg-blue-50 text-brand rounded-full px-3 py-1.5">📍 ${F.cp<0?'Todas las sedes UPC':CAMP[F.cp]} ▾</button>
+   </div>
+   <button onclick="notifM()" aria-label="Notificaciones" class="relative p-2 rounded-full bg-blue-50 text-brand mt-1"><i data-lucide="bell"></i><span class="absolute top-1.5 right-2 w-2 h-2 bg-pink-500 rounded-full"></span></button>
+  </div>
+  <div class="px-5 mt-5">
+   <div class="flex items-center bg-white rounded-2xl px-4 shadow-[0_6px_16px_rgba(30,42,120,.12)] border border-slate-100 focus-within:ring-2 focus-within:ring-brand/30">
+    <i data-lucide="search" class="w-5 text-slate-400"></i>
+    <input id="qs" value="${esc(F.q)}" oninput="qIn(this.value)" placeholder="Buscar productos (ej. calculadora, mandil, dron)" class="w-full bg-transparent py-3.5 px-3 text-[15px] outline-none">
+    ${F.q?`<button onclick="F.q='';R(1)" aria-label="Borrar búsqueda" class="text-slate-400 hover:text-slate-600 mr-2"><i data-lucide="x" class="w-4"></i></button>`:''}
+    <button onclick="filtM()" aria-label="Filtros" class="text-slate-500"><i data-lucide="sliders-horizontal" class="w-5"></i></button>
+   </div>
+  </div>
+  ${isQ ? `
+  <div class="px-5 mt-4">
+   <div class="flex items-center justify-between">
+    <h2 class="text-base font-extrabold text-navy">Resultados para "${esc(F.q)}"</h2>
+    <span id="cnt" class="text-xs text-slate-400">${l.length} producto${l.length==1?'':'s'}</span>
+   </div>
+   <div class="flex gap-2 overflow-x-auto no-sb mt-3">
+    ${['Todo','Venta','Alquiler'].map(t=>`<button class="chip ${F.tab==t?'on':''}" onclick="F.tab='${t}';R(1)">${t}</button>`).join('')}
+    <button class="chip" onclick="F.q='';R(1)">✕ Limpiar búsqueda</button>
+   </div>
+   <div id="grid" class="mt-4 grid grid-cols-2 gap-x-3 gap-y-4">${gridH(l)}</div>
+  </div>` : `
  <div class="flex justify-between px-4 mt-6">${G.map(g=>`<button onclick="F.cat=F.cat=='${g[0]}'?'Todo':'${g[0]}';R(1)" class="flex flex-col items-center gap-2 w-[80px]"><span class="w-14 h-14 rounded-full grid place-items-center transition ${F.cat==g[0]?'bg-brand text-white shadow-md shadow-brand/30':'bg-blue-50 text-brand'}"><i data-lucide="${g[1]}" class="w-6 h-6"></i></span><span class="text-[10.5px] font-semibold text-center leading-tight text-navy">${g[0]}</span></button>`).join('')}</div>
  <div class="mx-5 mt-6 rounded-3xl p-5 relative overflow-hidden" style="background:linear-gradient(120deg,#dbeafe,#e0f2fe)"><div class="relative z-10 w-[58%]"><h2 class="text-[18px] font-bold leading-tight text-navy">Dale una <span class="text-emerald-500">segunda vida</span> a lo que ya no usas</h2><p class="text-[11px] text-slate-600 mt-2 leading-snug">Compra, vende o alquila materiales y equipos académicos entre estudiantes.</p><button onclick="root('map')" class="mt-3 bg-navy text-white text-xs font-bold px-4 py-2 rounded-full inline-flex items-center gap-1">Explorar ahora <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button></div>
   <div class="absolute right-3 top-3 flex flex-col items-end gap-1 text-[8px] font-semibold text-navy"><span class="bg-white rounded-full px-2 py-0.5 shadow-sm">Más oportunidades</span><span class="bg-white rounded-full px-2 py-0.5 shadow-sm">Menos residuos</span><span class="bg-white rounded-full px-2 py-0.5 shadow-sm">Comunidad estudiantil</span></div>
@@ -70,9 +96,10 @@ ${offBtn()}<div class="mx-5 mt-5 rounded-2xl p-4 text-white" style="background:l
  <div class="flex gap-2 overflow-x-auto no-sb px-5 mt-3"><button class="chip ${F.cp<0?'on':''}" onclick="F.cp=-1;R(1)">🎓 Todos los campus</button>${CAMP.map((c,i)=>`<button class="chip ${F.cp==i?'on':''}" onclick="F.cp=${i};R(1)">${c}</button>`).join('')}</div>
  <div class="flex gap-2 px-5 mt-3 items-center">${[['all','Todos'],['official','Oficiales ✓'],['community','Comunidad']].map(a=>`<button class="chip ${F.src==a[0]?'on':''}" onclick="F.src='${a[0]}';R(1)">${a[1]}</button>`).join('')}</div>
   <div class="flex gap-2 px-5 mt-2 items-center">${['Todo','Venta','Alquiler'].map(t=>`<button class="chip ${F.tab==t?'on':''}" onclick="F.tab='${t}';R(1)">${t}</button>`).join('')}${filtN()?'<button class="chip" onclick="clrF()">✕ Limpiar filtros</button>':''}<span id="cnt" class="ml-auto text-xs text-slate-400">${l.length} resultado${l.length==1?'':'s'}</span></div>
- <div id="grid" class="px-5 mt-4 grid grid-cols-2 gap-x-3 gap-y-4">${gridH(l)}</div></div>`},
+ <div id="grid" class="px-5 mt-4 grid grid-cols-2 gap-x-3 gap-y-4">${gridH(l)}</div>`}
+ </div>`},
 detail(id){const p=P(id),s=SEL[p.s],am=p.mode=='ambos',al=p.mode=='alquiler'||(am&&S.vm=='alquiler'),n=Math.max(1,p.ph.length),rel=PR.filter(x=>x.cat==p.cat&&x.id!=id).slice(0,4),t=tag(p.mode);
- return `<div class="pb-28"><div class="relative h-80 bg-slate-100"><div id="car" onscroll="dots()" class="flex h-full overflow-x-auto snap-x snap-mandatory no-sb">${Array.from({length:n},(_,i)=>`<div class="min-w-full h-full snap-center">${pic(p,i)}</div>`).join('')}</div>
+ return `<div class="pb-28"><div class="relative h-80 bg-slate-100 flex items-center justify-center overflow-hidden"><div id="car" onscroll="dots()" class="flex h-full w-full overflow-x-auto snap-x snap-mandatory no-sb">${Array.from({length:n},(_,i)=>`<div class="min-w-full h-full snap-center flex items-center justify-center bg-slate-100 relative">${pic(p,i,'!object-contain')}</div>`).join('')}</div>
   <button onclick="back()" class="absolute top-4 left-4 bg-white rounded-full p-2 shadow"><i data-lucide="arrow-left"></i></button>
   <div class="absolute top-4 right-4 flex gap-2"><button onclick="navigator.clipboard&&navigator.clipboard.writeText('u2u.pe/p/${p.id}');toast('Enlace copiado')" class="bg-white rounded-full p-2 shadow"><i data-lucide="share-2"></i></button><button onclick="fav(${p.id})" class="bg-white rounded-full p-2 shadow"><i data-lucide="heart" class="${ST.fav.includes(p.id)?'fill-red-500 text-red-500':''}"></i></button></div>
   ${n>1?`<div id="dots" class="absolute bottom-3 inset-x-0 flex justify-center gap-1.5"></div>`:''}</div>

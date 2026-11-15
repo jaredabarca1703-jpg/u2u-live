@@ -41,6 +41,8 @@ function smartMatch(p,q){
   return false;
  });
 }
+/* El buscador de Home: al empezar/terminar de escribir se repinta la pantalla (modo resultados) y se devuelve el foco */
+function qIn(v){const p=F.q||'';F.q=v;if(!p.trim()!=!v.trim()){R(1);const e=$('#qs');if(e){e.focus();e.setSelectionRange(v.length,v.length)}}else gridR()}
 /* Home: filtros y grilla (el buscador conserva el foco al escribir) */
 const HL=()=>{const g=G.find(x=>x[0]==F.cat);return PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&(!g||g[2].includes(p.cat))&&(F.car=='Todas'||carOk(p))&&(F.cond=='Todos'||p.cond==F.cond)&&srcOk(p)&&p.status!='sold'&&(F.cp<0||SEL[p.s].cp==F.cp)&&smartMatch(p,F.q)).sort((a,b)=>F.sort=='d'?a.d-b.d:F.sort=='p'?(a.price||a.rent)-(b.price||b.rent):b.ts-a.ts).sort((a,b)=>window.featCmp?featCmp(a,b):0)};
 const gridH=l=>(window.io&&LV.me&&LV.ld.p)?skGrid(6):l.map(card).join('')||EMPTYQ()||`<div class="col-span-2 text-center text-slate-400 py-8"><p>😕 Sin resultados.</p><button onclick="aiOpen(F.q||'Ayúdame a encontrar algo')" class="mt-3 px-4 py-2 rounded-full text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">✨ Preguntar a U2U AI</button></div>`;
