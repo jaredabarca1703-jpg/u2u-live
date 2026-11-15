@@ -1,12 +1,12 @@
 /* =================== NAVEGACIÓN =================== */
 let S={s:'login',a:null,st:[],vm:'venta'},F={tab:'Todo',cat:'Todo',cp:-1,sort:'d',q:'',car:'Todas',cond:'Todos',src:'all'},CO={},PUB={},PT='pub',STEP=1;
 const NAVS=['home','map','msgs','profile'];
-function nav(s,a){S.st.push({s:S.s,a:S.a});S.s=s;S.a=a;R()}
-function back(){const p=S.st.pop()||{s:'home'};S.s=p.s;S.a=p.a;R()}
+function nav(s,a){const v=$('#v');S.st.push({s:S.s,a:S.a,y:v?v.scrollTop:0});S.s=s;S.a=a;R()}
+function back(){const p=S.st.pop()||{s:'home',y:0};S.s=p.s;S.a=p.a;R(false,p.y||0)}
 function root(s,a){S.st=[];S.s=s;S.a=a;R()}
-function R(keep){const v=$('#v'),y=v.scrollTop,xs=keep?[...v.querySelectorAll('.no-sb')].map(e=>e.scrollLeft):[];
+function R(keep,restoreY){const v=$('#v'),y=v.scrollTop,xs=keep?[...v.querySelectorAll('.no-sb')].map(e=>e.scrollLeft):[];
  if(!keep){v.style.animation='none';v.offsetWidth;v.style.animation=''} /* R(1) = repintado por eventos del servidor: sin animación de entrada ni saltos */
- v.innerHTML=V[S.s](S.a);v.scrollTop=keep?y:0;
+ v.innerHTML=V[S.s](S.a);v.scrollTop=keep?y:(restoreY!==undefined?restoreY:0);
  if(keep)v.querySelectorAll('.no-sb').forEach((e,i)=>{if(xs[i])e.scrollLeft=xs[i]});
  const n=$('#nav');n.classList.toggle('hidden',!NAVS.includes(S.s));
  const b=(s,i,l)=>`<button onclick="root('${s}')" class="flex flex-col items-center gap-0.5 ${S.s==s?'text-brand font-semibold':''}"><i data-lucide="${i}"></i>${l}</button>`;
@@ -27,7 +27,7 @@ const card=p=>{const t=tag(p.mode);return `<div onclick="openP(${p.id})" class="
   <span class="absolute bottom-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${t[1]}">${t[0]}</span>${p.official?'<span class="absolute bottom-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand text-white shadow-sm">Oficial ✓</span>':''}</div>
  <p class="font-extrabold mt-1.5 text-[15px] leading-none">${price(p)}${fairB(p)}</p>
  <p class="text-[13px] truncate mt-0.5">${esc(p.t)}</p>
- <p class="text-[11px] text-slate-500 truncate">📍 ${CAMP[SEL[p.s].cp]} · ${p.d} km</p></div>`};
+ <p class="text-[11px] text-slate-500 truncate">${(SEL[p.s].cp==((LV.me&&LV.me.cp!==undefined)?LV.me.cp:SEL[ME].cp))?`<span class="text-emerald-700 font-semibold">📍 ${CAMP[SEL[p.s].cp].replace('UPC ','')} · En tu campus ✓</span>`:`📍 ${CAMP[SEL[p.s].cp].replace('UPC ','')} · a ${p.d} km`}</p></div>`};
 /* =================== PANTALLAS =================== */
 const V={
 login(){return window.io?authForm('login'):V.localLogin()},

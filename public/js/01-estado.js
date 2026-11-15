@@ -5,7 +5,7 @@ const hm=()=>new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-dig
 const CAMP=['UPC Monterrico','UPC San Isidro','UPC Villa','UPC San Miguel'];
 const CATS=[['Todo','layout-grid'],['Cámaras','camera'],['Laptops','laptop'],['Calculadoras','calculator'],['Herramientas','ruler'],['Libros','book-open'],['Audio','mic'],['Ropa','shirt']];
 const G=[['Cámaras y fotografía','camera',['Cámaras','Audio']],['Laptops y tecnología','laptop',['Laptops']],['Calculadoras y equipo de estudio','calculator',['Calculadoras','Libros']],['Herramientas y otros','wrench',['Herramientas','Ropa']]];
-const LL=[[-12.1036,-76.9631],[-12.0971,-77.0376],[-12.2042,-76.9617],[-12.0773,-77.0925]],pll=p=>{const c=LL[SEL[p.s].cp],j=(p.id%7-3)*.004;return[c[0]+j*.8,c[1]-j]};
+const LL=[[-12.1036,-76.9631],[-12.0971,-77.0376],[-12.2042,-76.9617],[-12.0773,-77.0925]],pll=p=>{const c=LL[SEL[p.s].cp],j=((p.id%5)-2)*.0006;return[c[0]+j*.7,c[1]+j*.9]};
 const SEL=[{n:'',r:0,c:0,car:'Estudiante UPC',cp:0,v:new Date().getFullYear(),ci:'—'}]; // solo el usuario actual; los vendedores reales se agregan desde el servidor
 const ME=0;
 const U=k=>'https://images.unsplash.com/photo-'+k+'?auto=format&fit=crop&w=600&q=80';

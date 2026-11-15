@@ -2,20 +2,60 @@
 function loginLocal(){const n=(($('#un')||{}).value||'').trim();if(n.length<2)return $('#er').textContent='Escribe tu nombre (mínimo 2 letras).';liveJoin(n);root('home')}
 function dots(){const c=$('#car'),d=$('#dots');if(!c||!d)return;const i=Math.round(c.scrollLeft/c.clientWidth);d.innerHTML=[...c.children].map((_,n)=>`<span class="w-2 h-2 rounded-full ${n==i?'bg-white':'bg-white/50'}"></span>`).join('')}
 function sh(){const s=$('#sheet');s.dataset.o=s.dataset.o=='1'?'':'1';s.style.transform=s.dataset.o?'translateY(0)':'translateY(calc(100% - 230px))'}
+/* Buscador inteligente: sin tildes, sinónimos universitarios y tolerancia a errores */
+const nrmStr=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+const SYN_DICT=[
+ {t:/^cam(a|ar|ra)?$/,w:['camara','camera','fotografia','dron']},
+ {t:/^calc(u|ul|ula)?$/,w:['calculadora','hpprime','casio']},
+ {t:/^lap(t|to)?$/,w:['laptop','macbook','computadora']},
+ {t:/^tab(l|le)?$/,w:['tablet','ipad','wacom']},
+ {t:/^drom?$/,w:['dron','dji']},
+ {t:/^mand(i)?$/,w:['mandil','scrub','laboratorio']},
+ {t:/^esca(l)?$/,w:['escalimetro','regla']},
+ {t:/^libr?$/,w:['libro','libros','apuntes']},
+ {t:/^casc?$/,w:['casco','seguridad','epp']},
+ {t:/^trip?$/,w:['tripode','soporte']},
+ {t:/^cel(u)?$/,w:['celular','iphone']}
+];
+function smartMatch(p,q){
+ if(!q||!q.trim())return true;
+ const tokens=nrmStr(q).split(/\s+/).filter(Boolean);
+ if(!tokens.length)return true;
+ const full=nrmStr((p.t||'')+' '+(p.desc||'')+' '+(p.cat||'')+' '+((p.tags||[]).join(' ')));
+ const words=full.split(/\W+/).filter(Boolean);
+ return tokens.every(tk=>{
+  if(full.includes(tk))return true;
+  let ex=[];
+  for(const s of SYN_DICT){if(s.t.test(tk))ex=ex.concat(s.w)}
+  for(const w of ex){if(full.includes(w))return true}
+  if(tk.length>=3&&words.some(w=>w.startsWith(tk)||tk.startsWith(w)))return true;
+  if(tk.length>=4&&words.some(w=>{
+   if(Math.abs(w.length-tk.length)>1)return false;
+   let d=0,i=0,j=0;
+   while(i<tk.length&&j<w.length){
+    if(tk[i]!==w[j]){d++;if(d>1)return false;if(tk.length>w.length)i++;else if(w.length>tk.length)j++;else{i++;j++}}
+    else{i++;j++}
+   }
+   return(d+(tk.length-i)+(w.length-j))<=1;
+  }))return true;
+  return false;
+ });
+}
 /* Home: filtros y grilla (el buscador conserva el foco al escribir) */
-const HL=()=>{const g=G.find(x=>x[0]==F.cat);return PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&(!g||g[2].includes(p.cat))&&(F.car=='Todas'||carOk(p))&&(F.cond=='Todos'||p.cond==F.cond)&&srcOk(p)&&p.status!='sold'&&(F.cp<0||SEL[p.s].cp==F.cp)&&p.t.toLowerCase().includes(F.q.toLowerCase())).sort((a,b)=>F.sort=='d'?a.d-b.d:F.sort=='p'?(a.price||a.rent)-(b.price||b.rent):b.ts-a.ts).sort((a,b)=>window.featCmp?featCmp(a,b):0)};
+const HL=()=>{const g=G.find(x=>x[0]==F.cat);return PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&(!g||g[2].includes(p.cat))&&(F.car=='Todas'||carOk(p))&&(F.cond=='Todos'||p.cond==F.cond)&&srcOk(p)&&p.status!='sold'&&(F.cp<0||SEL[p.s].cp==F.cp)&&smartMatch(p,F.q)).sort((a,b)=>F.sort=='d'?a.d-b.d:F.sort=='p'?(a.price||a.rent)-(b.price||b.rent):b.ts-a.ts).sort((a,b)=>window.featCmp?featCmp(a,b):0)};
 const gridH=l=>(window.io&&LV.me&&LV.ld.p)?skGrid(6):l.map(card).join('')||EMPTYQ()||`<div class="col-span-2 text-center text-slate-400 py-8"><p>😕 Sin resultados.</p><button onclick="aiOpen(F.q||'Ayúdame a encontrar algo')" class="mt-3 px-4 py-2 rounded-full text-white text-sm font-semibold" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">✨ Preguntar a U2U AI</button></div>`;
 function gridR(){const l=HL();$('#grid').innerHTML=gridH(l);$('#cnt').textContent=l.length+' resultado'+(l.length==1?'':'s');lucide.createIcons()}
 function filtM(){M(`<div class="bg-white w-full rounded-t-3xl p-5 pop"><p class="font-bold text-lg mb-3">Filtrar por campus</p><div class="flex flex-wrap gap-2">${[-1,0,1,2,3].map(i=>`<button class="chip ${F.cp==i?'on':''}" onclick="F.cp=${i};X();R(1)">${i<0?'🎓 Todos':CAMP[i]}</button>`).join('')}</div><button class="btn mt-5" onclick="X()">Listo</button></div>`)}
 /* Mapa real de Lima */
-const mapL=()=>PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&p.t.toLowerCase().includes(F.q.toLowerCase())&&p.status!='sold'&&srcOk(p)&&(F.cond=='Todos'||p.cond==F.cond)&&(F.car=='Todas'||carOk(p))&&(F.cp<0||SEL[p.s].cp==F.cp)).sort((a,b)=>a.d-b.d);
+const mapL=()=>PR.filter(p=>(F.tab=='Todo'||p.mode==F.tab.toLowerCase()||p.mode=='ambos')&&smartMatch(p,F.q)&&p.status!='sold'&&srcOk(p)&&(F.cond=='Todos'||p.cond==F.cond)&&(F.car=='Todas'||carOk(p))&&(F.cp<0||SEL[p.s].cp==F.cp)).sort((a,b)=>a.d-b.d);
 function initMap(mini){const el=$(mini?'#mini-map':'#map');if(!el)return;
  if(!window.L){el.innerHTML='<div class="h-full grid place-items-center text-xs text-slate-400 bg-slate-100">Mapa no disponible sin conexión</div>';return}
  const m=L.map(el,{zoomControl:false,attributionControl:!mini,dragging:!mini,touchZoom:!mini,scrollWheelZoom:!mini,doubleClickZoom:!mini,boxZoom:false,keyboard:false}).setView(!mini&&F.cp>=0?LL[F.cp]:[-12.07,-77.02],mini?11:(F.cp>=0?14:12));
  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(m);
- L.circleMarker([-12.079,-77.0905],{radius:8,color:'#fff',weight:3,fillColor:'#3b82f6',fillOpacity:1}).addTo(m);
+ const uCp=(LV.me&&LV.me.cp!==undefined)?LV.me.cp:(F.cp>=0?F.cp:SEL[ME].cp);
+ L.circleMarker(LL[uCp]||LL[0],{radius:8,color:'#fff',weight:3,fillColor:'#3b82f6',fillOpacity:1}).addTo(m);
  CAMP.forEach((c,i)=>{const n=PR.filter(p=>SEL[p.s].cp==i).length;if(mini){L.circleMarker(LL[i],{radius:5,color:'#fff',weight:2,fillColor:'#1e2a78',fillOpacity:1}).addTo(m);return}
-  L.marker(LL[i],{zIndexOffset:500,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="campus ${F.cp==i?'on':''}">🎓 ${c.replace('UPC ','')} · ${n}</div>`})}).addTo(m).on('click',()=>{F.cp=F.cp==i?-1:i;R()})});
+  L.marker(LL[i],{zIndexOffset:500,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="campus ${F.cp==i?'on':''}">🏛️ ${c.replace('UPC ','')} · ${n}</div>`})}).addTo(m).on('click',()=>{F.cp=F.cp==i?-1:i;R()})});
  (mini?HL():mapL()).forEach(p=>{const sale=p.mode=='venta'||(p.mode=='ambos'&&F.tab!='Alquiler'),c=sale?'#10b981':'#0ea5e9',ll=pll(p);
   if(mini){L.circleMarker(ll,{radius:6,color:'#fff',weight:2,fillColor:c,fillOpacity:1}).addTo(m);return}
   L.marker(ll,{icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="pin" style="border-color:${c};color:${c}">S/${Math.round(sale?p.price:p.rent)}${sale?'':'/d'}</div>`})}).addTo(m).on('click',()=>openP(p.id))});
