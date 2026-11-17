@@ -30,9 +30,7 @@ function shareProduct(p,quiet){if(!sock||!sock.connected||!LV.me)return;
   if(r.id&&r.id!=p.id){p.id=r.id;save()}})}
 
 /* Tras cada render: pintar mensajes, conservar el código que se está escribiendo y actualizar indicadores */
-const _R=R;R=function(keep,y){const pv={};document.querySelectorAll('.pin-in').forEach(i=>pv[i.dataset.o]=i.value);
- _R(keep,y);document.querySelectorAll('.pin-in').forEach(i=>{if(pv[i.dataset.o])i.value=pv[i.dataset.o]});
- if(S.s=='lchat')lchatR(S.a);navDot();presUI()};
+onAfterRender(()=>{if(S.s=='lchat')lchatR(S.a);navDot();presUI()});
 liveStart();
 
 /* ===== v8.2.0 ===== */

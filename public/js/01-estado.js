@@ -13,7 +13,11 @@ const sedeCmp=(a,b)=>(pcp(a)!=SEL[ME].cp)-(pcp(b)!=SEL[ME].cp); // «En tu sede 
 let PR=[]; // el catálogo oficial y el de la comunidad llegan del servidor (seed.json + publicaciones)
 const ST={fav:[],orders:[],chats:{},off:{},mine:[]};
 try{Object.assign(ST,JSON.parse(localStorage.getItem('u2u6')||'{}'));PR=[...ST.mine,...PR]}catch(e){}
-const save=()=>{try{ST.mine=PR.filter(p=>p.id>100&&!p.remote);localStorage.setItem('u2u6',JSON.stringify(ST))}catch(e){toast('Memoria llena: no se guardó')}};
+/* Copia ligera para localStorage: las fotos base64 pesadas (>150 KB) no se guardan; si ya se sincronizó con el servidor basta con su copia remota */
+const slimMine=p=>{if(!Array.isArray(p.ph))return p;const heavy=f=>typeof f=='string'&&f.startsWith('data:image/')&&f.length>150000;if(!p.synced&&!p.ph.some(heavy))return p;const ph=p.ph.filter(f=>!(p.synced&&typeof f=='string'&&f.startsWith('data:image/'))&&!heavy(f));return Object.assign({},p,{ph:ph.length?ph:['cam']})};
+const save=()=>{try{ST.mine=PR.filter(p=>p.id>100&&!p.remote);localStorage.setItem('u2u6',JSON.stringify(Object.assign({},ST,{mine:ST.mine.map(slimMine)})))}catch(e){toast('Memoria llena: no se guardó')}};
+/* Portapapeles único (navigator.clipboard con respaldo de <textarea>) */
+function copyText(txt,okMsg='Copiado'){const old=()=>{const x=document.createElement('textarea');x.value=txt;x.style.cssText='position:fixed;opacity:0';document.body.appendChild(x);x.select();try{document.execCommand('copy');toast(okMsg)}catch(e){toast('Cópialo a mano: '+txt)}x.remove()};try{if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(txt).then(()=>toast(okMsg),old)}catch(e){}old()}
 const src=k=>IM[k]||k,P=id=>PR.find(p=>p.id==id);
 const pic=(p,i=0,c='')=>p.ph[i]?`<img src="${src(p.ph[i])}" loading="lazy" decoding="async" alt="${esc(p.t||'Producto')}" onerror="imgErr(this,'${p.e||'📦'}')" class="w-full h-full object-cover ${c}">`:`<div class="w-full h-full grid place-items-center text-5xl bg-blue-50">${p.e||'📦'}</div>`;
 const price=(p,m)=>{m=m||p.mode;return m=='alquiler'?`${sol(p.rent)}<small class="font-semibold text-slate-500">/día</small>`:m=='venta'?sol(p.price):`${sol(p.price)}<small class="font-semibold text-slate-500"> · ${sol(p.rent)}/día</small>`};

@@ -56,9 +56,7 @@ async function comReport(){if(COM.busy||!COM.cur)return;const g=id=>document.que
  if(b){b.disabled=false;b.textContent='Registrar pago'}const j=r.j||{},m=j.error||(r.status==0?'No hay conexión con el servidor. Reintenta en unos segundos.':'No se pudo enviar. Intenta de nuevo.');
  if(j.field==='operationNumber')set('cm_e_op',m);else if(j.field==='senderName')set('cm_e_nm',m);else set('cm_e_gen',m);
  if(j.code==='NOT_FOUND')comLoad()}
-function comCopy(){const n=COM.cm&&COM.cm.yape&&COM.cm.yape.number;if(!n)return;
- const ok=()=>toast('Número copiado'),old=()=>{const t=document.createElement('textarea');t.value=n;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();try{document.execCommand('copy');ok()}catch(e){toast('Cópialo a mano: '+n)}t.remove()};
- if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(n).then(ok,old);else old()}
+function comCopy(){const n=COM.cm&&COM.cm.yape&&COM.cm.yape.number;if(n)copyText(n,'Número copiado')}
 
 /* ---------- 2. aviso permanente ---------- */
 function comBannerH(){if(!comActive())return '';const t=comTodo(),w=comWait();if(!t.length&&!w.length)return '';
@@ -120,12 +118,8 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
  else if(k==='reason-reject'||k==='reason-waive'){const t=((document.querySelector('#cm_reason')||{}).value||'').trim();if(t.length<3){const e2=document.querySelector('#cm_e_gen');if(e2)e2.textContent='Escribe el motivo (mínimo 3 letras).';return}
   b.disabled=true;comAdmAct(k.slice(7),COM.cur,t).then(ok=>{if(ok)X();else b.disabled=false})}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&(e.target.id==='cm_op'||e.target.id==='cm_nm'))comReport()});
-function confirmOrder(id){const i=document.querySelector(`.pin-in[data-o="${id}"]`),pin=((i&&i.value)||'').replace(/[^0-9]/g,''); /* misma función de 07-pedidos.js + abre el modal de cobro */
- if(pin.length!=6)return toast('Ingresa los 6 dígitos del código');
- if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
- sock.emit('order:confirm',{id,pin},r=>{if(r&&r.error){toast(r.error);if(i)i.value='';return}if(r&&r.commission)comAfterSale()})}
 {const f=window.lsend;if(typeof f==='function')window.lsend=function(k){if(comRestricted()&&!comToOff(k)){toast(COM_MSG);comModal();return}return f.apply(this,arguments)}}
 {const f=window.authOk;if(typeof f==='function')window.authOk=function(){const r=f.apply(this,arguments);COM.cm=null;COM.cfg=null;comBind();comLoad();return r}}
 {const f=window.sessionOut;if(typeof f==='function')window.sessionOut=function(){COM.cm=null;COM.cfg=null;COM.adm={items:[],summary:null,filter:'',loading:false};return f.apply(this,arguments)}}
-{const f=window.R;if(typeof f==='function')window.R=function(keep,y){f.call(this,keep,y);comUI()}}
+onAfterRender(()=>comUI());
 comBind();

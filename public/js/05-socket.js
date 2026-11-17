@@ -18,7 +18,8 @@ function liveStart(){if(!window.io)return;
  sock.on('connect',()=>{netUI(0);if(LV.me)sock.emit('join',joinData());presUI()});
  sock.on('denied',()=>{if(LV.me)sessionOut('Tu sesión expiró. Inicia sesión de nuevo.')});
  sock.on('disconnect',()=>{netUI(1);presUI()});sock.on('connect_error',()=>netUI(1));sock.io.on('reconnect_attempt',()=>netUI(1));
- sock.on('presence',p=>{LV.pres=p;presUI()});
+ sock.on('presence',p=>{LV.pres=p;presUI();if(window.livePresence)livePresence()});
+ if(window.lobbyBind)lobbyBind(sock);
  sock.on('history',l=>{LV.ld.h=0;const old=LV.convs;LV.convs={};
   l.forEach(c=>{
    const delAt=DEL_CONVS[c.key]||0;

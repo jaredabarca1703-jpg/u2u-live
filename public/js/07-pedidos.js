@@ -10,6 +10,7 @@ function coOk(id,mode){if(LV.adm){toast('La cuenta oficial vende y modera: no co
  if(Object.values(LV.orders).some(o=>o.pid==id&&o.buyerId==LV.me.uid&&o.mode==m&&o.status=='pending')){toast('Ya tienes un pedido pendiente por este producto');MT='orders';root('msgs');return false}
  return true}
 function payLive(){if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
+ if(CO.mode==='alquiler'&&(!CO.from||!CO.to||CO.to<CO.from))return toast('Revisa las fechas de alquiler');
  M('<div class="bg-white w-full rounded-t-3xl p-8 text-center"><div class="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto"></div><p class="font-bold mt-4">Confirmando tu reserva...</p></div>');
  sock.emit('order:create',{pid:CO.id,mode:CO.mode=='alquiler'?'alquiler':'compra',del:CO.del,cp:CO.cp,from:CO.from,to:CO.to},r=>{
   if(!r||r.error){X();return toast((r&&r.error)||'No se pudo crear el pedido')}
@@ -32,7 +33,7 @@ function showDone(o){const buyer=o.buyerId==LV.me.uid,k=o.mode=='compra'?'compra
 function confirmOrder(id){const i=document.querySelector(`.pin-in[data-o="${id}"]`),pin=((i&&i.value)||'').replace(/[^0-9]/g,'');
  if(pin.length!=6)return toast('Ingresa los 6 dígitos del código');
  if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
- sock.emit('order:confirm',{id,pin},r=>{if(r&&r.error){toast(r.error);if(i)i.value=''}})}
+ sock.emit('order:confirm',{id,pin},r=>{if(r&&r.error){toast(r.error);if(i)i.value='';return}if(r&&r.commission&&typeof comAfterSale==='function')comAfterSale()})}
 async function cancelOrder(id){if(!await askConfirm({title:'¿Cancelar este pedido?',msg:'Se liberará el producto para otros estudiantes.',ok:'Sí, cancelar pedido',no:'Volver',danger:1,icon:'trash-2'}))return;if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
  sock.emit('order:cancel',{id},r=>{if(r&&r.error)toast(r.error)})}
 function orderChat(id){const o=LV.orders[id];if(!o)return;const k=o.pid+'|'+o.buyerId;
@@ -56,15 +57,19 @@ function liveMsgs(){const l=Object.values(LV.convs).filter(c=>c.msgs.length).sor
  bd=n=>n?`<span class="ml-1 min-w-[18px] h-[18px] px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold inline-grid place-items-center">${n}</span>`:'',
  tab=(k,t,n)=>`<button onclick="MT='${k}';R(1)" class="py-2 rounded-lg ${MT==k?'bg-white shadow text-brand':'text-slate-500'}">${t}${bd(n)}</button>`;
  const chats=l.map(c=>{const p=c.pid==0?offP():P(c.pid),m=c.msgs[c.msgs.length-1],mine=m.uid==LV.me.uid;if(!p)return '';
-  return `<div onclick="nav('lchat','${c.key}')" class="flex gap-3 items-center py-3 border-b cursor-pointer"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm">${c.buyerId!=LV.me.uid?esc(c.buyerName):esc(SEL[p.s].n)}</p><p class="text-xs text-slate-500 truncate">${esc(p.t)}</p><p class="text-xs truncate ${mine?'text-slate-400':'text-slate-700 font-semibold'}">${mine?'Tú: ':''}${esc(m.text)}</p></div><div class="flex flex-col items-end gap-1"><span class="text-[10px] text-slate-400">${tm(m.ts)}</span>${c.un?`<span class="min-w-[18px] h-[18px] px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center">${c.un}</span>`:''}<button onclick="event.stopPropagation();delConvAsk('${c.key}')" class="p-1 text-slate-300 hover:text-red-400 transition" title="Borrar conversación"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div></div>`}).join('')
+  return `<div onclick="nav('lchat','${c.key}')" class="flex gap-3 items-center py-3 border-b cursor-pointer"><div class="w-14 h-14 rounded-xl overflow-hidden">${pic(p)}</div><div class="flex-1 min-w-0"><p class="font-bold text-sm">${c.buyerId!=LV.me.uid?esc(c.buyerName):esc(SEL[p.s].n)}${window.onlineDot?onlineDot(c.buyerId!=LV.me.uid?c.buyerId:(p.own||SEL[p.s].uid)):''}</p><p class="text-xs text-slate-500 truncate">${esc(p.t)}</p><p class="text-xs truncate ${mine?'text-slate-400':'text-slate-700 font-semibold'}">${mine?'Tú: ':''}${esc(m.text)}</p></div><div class="flex flex-col items-end gap-1"><span class="text-[10px] text-slate-400">${tm(m.ts)}</span>${c.un?`<span class="min-w-[18px] h-[18px] px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center">${c.un}</span>`:''}<button onclick="event.stopPropagation();delConvAsk('${c.key}')" class="p-1 text-slate-300 hover:text-red-400 transition" title="Borrar conversación"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div></div>`}).join('')
   ||(LV.ld.h?skRows(4):empty('message-circle','Aún no tienes conversaciones','Abre una publicación de otro estudiante y toca el chat para escribirle en privado.','Explorar productos',"root('home')"));
- return `<div class="p-5 pb-28"><h1 class="text-2xl font-bold mb-3">Mensajes</h1><div class="grid grid-cols-2 bg-slate-100 rounded-xl p-1 text-sm font-semibold mb-4">${tab('chats','Chats',nc)}${tab('orders','Pedidos',np)}</div>${MT=='orders'?liveOrdersH():chats}</div>`}
+ return `<div class="p-5 pb-28"><h1 class="text-2xl font-bold mb-3">Mensajes</h1><div class="grid grid-cols-3 bg-slate-100 rounded-xl p-1 text-sm font-semibold mb-4">${tab('chats','Chats',nc)}${tab('orders','Pedidos',np)}${tab('live','En vivo 🟢',0)}</div>${MT=='live'?(window.lobbyH?lobbyH():''):MT=='orders'?liveOrdersH():chats}</div>`}
 const _vMsgs=V.msgs;V.msgs=a=>(window.io&&LV.me)?liveMsgs():_vMsgs(a);
 
 /* ---------- Indicadores ---------- */
 function presUI(){const p=LV.pres||{total:0},ok=sock&&sock.connected;
  const a=$('#pres');if(a)a.textContent=ok?`🟢 ${p.total} conectado${p.total==1?'':'s'} ahora`:(sock?'🔴 Conectando con el servidor…':'⚪ Sin conexión con el servidor');
- const b=$('#lst');if(b){b.innerHTML=!ok?'<span class="text-red-500">● reconectando…</span>':'<span class="text-slate-400">Última conexión no disponible</span>'}}
+ const b=$('#lst');if(b){let h;if(!ok)h='<span class="text-red-500">● reconectando…</span>';else{
+  const o=otherUid();h=window.isOnline&&isOnline(o)?'<span class="text-emerald-600 font-semibold">● En línea ahora</span>':'<span class="text-slate-400">○ Desconectado</span>'}
+  b.innerHTML=h}}
+/* uid del interlocutor en el chat abierto (S.a = «publicación|comprador») */
+function otherUid(){if(S.s!='lchat'||!LV.me)return null;const [pid,bid]=String(S.a||'').split('|');if(bid&&bid!=LV.me.uid)return bid;const p=+pid==0?(typeof offP=='function'?offP():null):P(+pid);return p?(p.own||(SEL[p.s]&&SEL[p.s].uid)||null):null}
 function navDot(){const b=document.querySelector('#nav [aria-label="Mensajes"]');if(!b)return;b.classList.add('relative');
  const n=Object.values(LV.convs).reduce((a,c)=>a+(c.un||0),0)+(LV.me?Object.values(LV.orders).filter(o=>o.status=='pending'&&o.ownerId==LV.me.uid).length:0);let d=b.querySelector('.ud');
  if(n&&!d){b.insertAdjacentHTML('beforeend','<span class="ud absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center"></span>');d=b.querySelector('.ud')}

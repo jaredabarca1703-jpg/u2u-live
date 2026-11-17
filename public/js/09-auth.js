@@ -38,5 +38,5 @@ async function boot(n){n=n||0;let tk=tkGet();
 function bootInit(){let tk=tkGet();if(window.io&&tk)boot();else R()}
 async function logout(){if(!await askConfirm({title:'¿Cerrar sesión?',msg:'Tendrás que volver a ingresar tu correo y contraseña.',ok:'Cerrar sesión',no:'Volver',icon:'log-out'}))return;sessionOut()}
 function sessionOut(msg){let tk=tkGet();if(tk&&window.io)api('logout',{},tk);try{['u2u6','u2u7','u2useen'].concat([TK,'u2uid']).forEach(k=>localStorage.removeItem(k))}catch(e){}
- ST.mine=[];ST.chats={};ST.fav=[];ST.orders=[];ST.off={};PR=PR.filter(p=>p.remote); /* nada de la cuenta anterior queda en este dispositivo */
+ ST.mine=[];ST.chats={};ST.fav=[];ST.orders=[];ST.off={};PR=PR.filter(p=>p.remote);if(window.lobbyReset)lobbyReset(); /* nada de la cuenta anterior queda en este dispositivo */
  if(sock&&sock.connected)sock.emit('leave');LV.me=null;LV.idc=null;LV.convs={};LV.orders={};LV.adm=false;LV.rpt=null;LV.rep=new Set();LV.rt={};LV.rv={};LV.rl={};LV.ld={p:0,h:0,o:0};ACC=null;REG=REG0();RC=RC0();SEL[ME].prof=null;S.s='login';S.st=[];X();R();if(msg)toast(msg)}

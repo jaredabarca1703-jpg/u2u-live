@@ -33,3 +33,8 @@ test('fd usa la fecha LOCAL: a las 21:00 en Lima sigue siendo «hoy» (con UTC d
   assert.strictEqual(run('fd(1)'), '2026-11-16');
   assert.strictEqual(run('fd(3)'), '2026-11-18');
 });
+
+test('profile() no revienta sin sesión (uname() vacío)', (t) => {
+  const run = boot(t);
+  assert.doesNotThrow(() => run('V.profile()'));
+});

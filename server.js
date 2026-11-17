@@ -86,6 +86,7 @@ const orders = new Map();   // id -> pedido
 const quotas = new Map();   // uid -> contadores de límites (sobreviven a re-join y a varios sockets del mismo usuario)
 let lastId = Date.now();
 const HISTORY_N = 50;
+const LOBBY_MAX = 50, LOBBY_MSGS = [], lobbyLast = new Map(); // sala grupal: mensajes recientes y último envío por usuario
 const sentCids = new Set(); // cid de mensajes ya recibidos (conv|uid|cid): un reintento con el mismo cid no duplica el mensaje
 const deletedIds = new Set(); // ids de publicaciones eliminadas (moderación o dueño): no se pueden volver a publicar
 /* ---------- Comisión por venta (parte A, commission.js): COMMISSION_MODE=off|shadow|active, nace apagada ---------- */
@@ -119,9 +120,28 @@ const newMsgId = () => Date.now().toString(36) + crypto.randomBytes(4).toString(
 
 const ownerOf = (pid) => owners.get(pid);
 const ownerOfConv = (c) => (c.pid === 0 ? OFFICIAL && OFFICIAL.uid : ownerOf(c.pid)); // pid 0 = chat directo con la cuenta oficial
-const presence = () => ({ total: io.engine.clientsCount }); // solo el total: no se expone quién está en línea
-let presTimer = null; // se avisa como máximo cada 2 s (evita una ráfaga de eventos por cada conexión)
-const pushPresence = () => { if (presTimer) return; presTimer = setTimeout(() => { presTimer = null; io.emit('presence', presence()); }, 2000); if (presTimer.unref) presTimer.unref(); };
+// Presencia: usuarios con al menos un socket activo (deduplicados por uid, sin bloqueados). Solo datos públicos: carrera, ciclo y sede únicamente si la persona aceptó mostrarlos; nunca correo ni secretos.
+const SEDES_IDX = ['Monterrico', 'San Isidro', 'Villa', 'San Miguel'];
+const presence = () => {
+  const byOwner = new Map();
+  for (const p of products.values()) if (p.status === 'available') { if (!byOwner.has(p.ownerUid)) byOwner.set(p.ownerUid, []); byOwner.get(p.ownerUid).push(p); }
+  const seen = new Set(), users = [];
+  for (const k of io.sockets.adapter.rooms.keys()) {
+    if (!k.startsWith('u:')) continue;
+    const uid = k.slice(2); if (seen.has(uid)) continue; seen.add(uid);
+    const acc = accounts.getByUid(uid); if (!acc || acc.blocked) continue;
+    const pp = accounts.publicProfile(acc), mine = byOwner.get(uid) || [];
+    users.push({
+      uid, name: pp.name, career: pp.career || '', cycle: pp.cycle || '', campus: pp.campus || '', cp: SEDES_IDX.indexOf(pp.campus),
+      verified: accounts.isVerified(acc), official: !!acc.admin, activeCount: mine.length,
+      sampleProducts: mine.slice(0, 3).map((p) => ({ id: p.id, t: p.t, mode: p.mode, price: p.price, rent: p.rent, ph: pubProduct(p).ph[0] || '', e: p.e || '📦' })),
+    });
+    if (users.length >= 100) break; // tope de tamaño del aviso
+  }
+  return { total: users.length, users };
+};
+let presTimer = null; // se avisa como máximo cada 1 s (evita una ráfaga de eventos por cada conexión)
+const pushPresence = () => { if (presTimer) return; presTimer = setTimeout(() => { presTimer = null; io.emit('presence', presence()); }, 1000); if (presTimer.unref) presTimer.unref(); };
 const num = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
 const fail = (code, error) => ({ ok: false, code, error });
 const notVerified = () => fail('NOT_VERIFIED', 'Verifica tu correo UPC para publicar, reservar o chatear.');
@@ -241,6 +261,7 @@ async function publish(me, d) {
     return { res: { ok: false, error: 'No se pudo guardar tu publicación. Inténtalo de nuevo.' } };
   }
   refreshStorage(); // medición actualizada (máx. cada 15 s) para el próximo tope
+  pushPresence(); // cambia la vitrina de «conectados»
   return { res: { ok: true, id: p.id }, p };
 }
 
@@ -250,6 +271,7 @@ function setStatus(p, status) {
   p.status = status;
   if (status === 'sold' || status === 'paused') featured.onGone(p.id, status); // vendida o pausada: se cancelan sus solicitudes de destacar (y p.featuredUntil queda en 0 antes de guardar)
   io.emit('product-status', { id: p.id, status }); // todos ven el cambio al instante
+  pushPresence();
   return db.products.put(p, { sync: true }).then(() => true, (e) => { console.error('[server] no se pudo guardar el estado de una publicación:', e.message); return false; });
 }
 
@@ -318,6 +340,7 @@ async function removeProduct(pid, opt) {
   products.delete(pid); deletedIds.add(pid);
   const gone = featured.onGone(pid, 'deleted'); // cancela sus solicitudes de destacar (si había dinero de por medio: refundDue)
   io.emit('product-removed', { id: pid, mod: !!(opt && opt.mod) }); // desaparece al instante para todos; mod = la quitó un moderador
+  pushPresence();
   try { await db.products.put({ ...p, deleted_at: Date.now() }, { sync: true }); }
   catch (e) { console.error('[server] no se pudo guardar la eliminación de una publicación:', e.message); }
   await gone;
@@ -395,6 +418,47 @@ io.on('connection', (socket) => {
     if (!c || !(c.buyerId === g.me.uid || ownerOfConv(c) === g.me.uid)) return reply({ error: 'Conversación no encontrada' });
     const older = c.msgs.filter((m) => m.ts < before);
     reply({ ok: true, key: c.key, msgs: older.slice(-HISTORY_N), more: older.length > HISTORY_N });
+  });
+
+  /* Sala grupal «Plaza UPC»: historial circular en memoria (50 mensajes) */
+  socket.on('lobby:history', (d, ack) => {
+    const reply = (o) => typeof ack === 'function' && ack(o);
+    const g = guard(socket); if (g.err) return reply(g.err);
+    reply({ ok: true, list: LOBBY_MSGS });
+  });
+  socket.on('lobby:send', (d, ack) => {
+    const reply = (o) => typeof ack === 'function' && ack(o);
+    const g = guard(socket); if (g.err) return reply(g.err);
+    const me = g.me, acc = accounts.getByUid(me.uid);
+    if (me.verified === false) return reply({ ok: false, code: 'NOT_VERIFIED', error: 'Verifica tu correo UPC para participar en el chat en vivo' });
+    const fd = fees.restrict(me.uid, { action: 'message', toOfficial: false, chatExists: false }); // comisión pendiente: sin sala grupal
+    if (fd) return reply({ ok: false, code: 'FEE_DUE', error: fd.error });
+    d = d || {};
+    const text = String(d.text || '').normalize('NFC').replace(/[\u0000-\u001f\u007f<>]/g, '').trim();
+    if (!text || text.length > 240) return reply({ ok: false, error: text ? 'Máximo 240 caracteres' : 'Escribe un mensaje' });
+    const now = Date.now();
+    if (now - (lobbyLast.get(me.uid) || 0) < 2000) return reply({ ok: false, code: 'RATE_LIMIT', error: 'Espera un par de segundos entre mensajes' });
+    let product = null;
+    if (d.pid) {
+      const p = products.get(parseInt(d.pid, 10));
+      if (!p || p.ownerUid !== me.uid || p.status !== 'available') return reply({ ok: false, error: 'Esa publicación no está disponible para promocionar' });
+      const v = pubProduct(p); product = { id: p.id, t: p.t, mode: p.mode, price: p.price, rent: p.rent, ph: v.ph[0] || '', e: p.e || '📦' };
+    }
+    lobbyLast.set(me.uid, now); if (lobbyLast.size > 5000) lobbyLast.delete(lobbyLast.keys().next().value);
+    const pp = accounts.publicProfile(acc);
+    const msg = { id: newMsgId(), uid: me.uid, name: pp.name, career: pp.career || '', campus: pp.campus || '', official: !!acc.admin, text, product, ts: now };
+    LOBBY_MSGS.push(msg); while (LOBBY_MSGS.length > LOBBY_MAX) LOBBY_MSGS.shift();
+    io.emit('lobby:msg', msg);
+    reply({ ok: true, msg });
+  });
+  socket.on('lobby:delete', (d, ack) => { // solo moderación
+    const reply = (o) => typeof ack === 'function' && ack(o);
+    const g = guard(socket); if (g.err) return reply(g.err);
+    if (g.me.admin !== true) return reply({ ok: false, error: 'No tienes permiso para esto' });
+    const i = LOBBY_MSGS.findIndex((m) => m.id === String((d || {}).id));
+    if (i < 0) return reply({ ok: false, error: 'Mensaje no encontrado' });
+    LOBBY_MSGS.splice(i, 1); io.emit('lobby:deleted', { id: String(d.id) });
+    reply({ ok: true });
   });
 
   /* Nueva publicación -> se guarda (y solo entonces se confirma) y se reenvía a todos los demás conectados */

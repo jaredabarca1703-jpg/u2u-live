@@ -9,8 +9,24 @@ QUÉ SE CAMBIÓ
 
 PRUEBAS (salida real)
  [check] 38 archivos .js revisados, 0 con error
- npm test → # tests 74 · # pass 74 · # fail 0 · # cancelled 0 · # skipped 0
+ npm test → # tests 75 · # pass 75 · # fail 0 · # cancelled 0 · # skipped 0
  Nuevas: tests/recover.test.js, tests/fase2.test.js, tests/client-regresion.test.js (+ casos en comision, destacados). Ajustadas por cambio de comportamiento: bloque05 (cuenta sin verificar ya no da 409), bloque06 (nombres únicos), parche870 (fotos base64), destacados-ui (orden por defecto «r»).
+
+VERIFICACIÓN ADICIONAL DEL CLIENTE (jsdom, datos simulados): se renderizaron home, detalle (venta y alquiler), checkout (alquiler y compra), publicar (+plantilla), mapa, sedes, perfil, vendedor, chat con «Cargar mensajes anteriores», pedidos, notificaciones y noConn. Hallazgo corregido: profile() fallaba sin sesión por esc(uname())[0] (ahora esc(uname()||'?')[0]) + prueba de regresión. Esto NO sustituye probar en navegador real.
+
+v8.7.5 · ADICIONAL: hooks de render, «Conectados ahora» y sala «Plaza UPC»
+------------------------------------------------------------------------------------------------
+ Bloque 1 · onAfterRender(fn) en 02-render.js; 08, 12, 13 y 14 ya no envuelven R (la conservación de los campos de código .pin-in pasó al propio R). detail() valida publicación inexistente y LV.me nulo; co()/payLive() validan fechas; confirmOrder único (llama a comAfterSale); copyText() único; save() guarda copia liviana de las fotos base64 pesadas.
+ Bloque 2 · presence = { total, users[] } (deduplicada por uid, sin bloqueados, fotos como URL /foto/..); se emite al conectar/desconectar y al publicar, vender/pausar o eliminar (agrupado: 1 aviso por segundo). Sala grupal: lobby:history, lobby:send (verificado, sin comisión pendiente, 1–240 caracteres, 1 mensaje cada 2 s, producto propio disponible) y lobby:delete (solo admin); historial circular de 50 en memoria.
+ Bloque 3 · public/js/15-conectados.js: tarjeta «Conectados ahora en U2U» en Inicio (bajo el bloque U2U AI), pestaña «En vivo 🟢» en Mensajes y vista nav('lobby'), mensajes en vivo sin R() (no borra el borrador), «● En línea» en chat, detalle, perfil de vendedor y lista de chats.
+ Pruebas nuevas: tests/plaza.test.js (servidor) y tests/client-plaza.test.js (jsdom, 24 comprobaciones). Resultado: npm test → # tests 79 · # pass 79 · # fail 0; [check] 41 archivos, 0 con error.
+
+ DECISIONES A REVISAR
+  · PRIVACIDAD: esto revierte la decisión de 3.8.2 (presencia solo con total). Ahora cualquier usuario conectado ve nombre, verificación y productos de los demás conectados. Carrera, ciclo y sede solo se envían si la persona aceptó mostrarlos (se usa publicProfile); el prompt pedía enviarlos siempre. Las cuentas sin verificar también aparecen.
+  · «Chatear» abre el chat 1 a 1 con openChat(primer producto del usuario): la clave de conversación es publicación|comprador (el comprador eres tú). Sin publicaciones no existe chat 1 a 1 (el servidor exige una publicación): se abre la Plaza con «@Nombre » precargado.
+  · El historial de la Plaza vive en memoria: un reinicio del servidor lo vacía. La presencia se limita a 100 usuarios por aviso.
+  · No se probó el tope de 50 mensajes (el límite de 2 s por usuario hace lento el test) ni el uso en navegador real o iPhone.
+------------------------------------------------------------------------------------------------
 
 NO SE PUDO PROBAR
  · Navegador real e iPhone (el cliente solo se probó con node --check y jsdom).

@@ -21,7 +21,7 @@ function boot() {
     const sol = n => 'S/ ' + n, esc = s => String(s), $ = () => null, tkGet = () => 'tok', pic = () => '', empty = () => '', skRows = () => '', hd = t => t;
     const P = id => PR.find(p => p.id == id);
     function api(p, b) { calls.push([p, b]); return Promise.resolve({ ok: true, status: 200, j: { ok: true, featured: { id: 'F1', pid: 101, status: 'payment_reported', until: 0, createdAt: 5 } } }); }
-    function M(h) { shown.push(h); } function X() {} function toast() {} function R() {} function gridR() {} function nav() {} function refreshCatalog() {}
+    function M(h) { shown.push(h); } function X() {} function toast() {} function R() {} function onAfterRender() {} function gridR() {} function nav() {} function refreshCatalog() {}
     function askConfirm() { return Promise.resolve(false); } function sessionOut() {}
     function addRemote(d) { return false; } function onProducts(l) {} function authOk() {}
     let AT = 'open';

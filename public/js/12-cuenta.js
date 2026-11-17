@@ -215,5 +215,5 @@ const LOCKQ='[onclick^="startPub("],[onclick^="openChat("],[onclick^="offerM("],
 function lockUI(){const m=lockMsg(),v=$('#v');document.querySelectorAll('.acc-lock').forEach(e=>e.remove());if(!m)return;
  document.querySelectorAll(LOCKQ).forEach(b=>{b.setAttribute('aria-disabled','true');b.classList.add('opacity-50')});
  if(S.s=='home'&&v){v.insertAdjacentHTML('afterbegin',`<div class="acc-lock mx-5 mt-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 p-3 text-xs flex gap-2 items-start"><i data-lucide="mail" class="w-5 shrink-0"></i><div class="flex-1"><b class="block text-sm">${LV.me.pending?'Cuenta pendiente de aprobación':'Cuenta sin verificar'}</b>${LV.me.pending?'El equipo U2U la revisará.':'Si no verificas en 72 h, se elimina.'} Mientras tanto no puedes publicar, reservar ni chatear.${LV.me.pending?'':'<button class="block mt-2 font-bold text-brand" onclick="nav(\'verify\')">Ingresar código</button>'}</div></div>`);lucide.createIcons()}}
-{const _R2=R;R=function(keep,y){_R2(keep,y);lockUI()}}
+onAfterRender(()=>lockUI());
 bootInit();
