@@ -64,7 +64,9 @@ test('gmail y subdominios se rechazan; solo upc.edu.pe exacto (y en minúsculas)
   }
   const ok = await t.post('/register', ana({ email: ' Ana.Prueba@UPC.EDU.PE ' }));
   assert.equal(ok.status, 201); assert.equal(ok.user.verified, false);
-  assert.equal((await t.post('/register', ana({ email: 'ana.prueba@upc.edu.pe' }))).status, 409); // un correo = una cuenta
+  // v8.7.5 (2.7.1): una cuenta SIN verificar no reserva el correo; una VERIFICADA sí (un correo = una cuenta)
+  assert.equal((await t.post('/verify', { code: t.codes[t.codes.length - 1] }, ok.token)).verified, true);
+  assert.equal((await t.post('/register', ana({ email: 'ana.prueba@upc.edu.pe' }))).status, 409);
   await t.stop();
 });
 
@@ -120,7 +122,7 @@ test('sin verificar no publica, reserva ni chatea (socket real); verificado sí 
   const r = await t.post('/register', ana());
   const c = await sio(t.base);
   c.send('join', { uid: r.user.uid, secret: r.user.secret });
-  const item = { t: 'Calculadora Casio', ph: ['cam'], mode: 'venta', price: 50, cat: 'Calculadoras', cond: 'Usado', desc: 'prueba' };
+  const item = { t: 'Calculadora Casio', ph: ['data:image/png;base64,iVBORw0KGgo='], mode: 'venta', price: 50, cat: 'Calculadoras', cond: 'Usado', desc: 'prueba' };
   assert.equal((await c.emit('new-product', item)).code, 'NOT_VERIFIED');
   assert.equal((await c.emit('order:create', { pid: 1 })).code, 'NOT_VERIFIED');
   assert.equal((await c.emit('send', { pid: 0, text: 'hola' })).code, 'NOT_VERIFIED');

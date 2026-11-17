@@ -17,7 +17,7 @@ function boot() {
   ctx.handlers = handlers;
   vm.runInContext(`
     var sock = null; const ME = 0, SEL = [{}], PR = []; let PT = 'pub';
-    let S = { s: 'home', a: null }, F = { sort: 'd', q: '' }, LV = { me: { uid: 'u1' }, adm: false };
+    let S = { s: 'home', a: null }, F = { sort: 'r', q: '' }, LV = { me: { uid: 'u1' }, adm: false };
     const sol = n => 'S/ ' + n, esc = s => String(s), $ = () => null, tkGet = () => 'tok', pic = () => '', empty = () => '', skRows = () => '', hd = t => t;
     const P = id => PR.find(p => p.id == id);
     function api(p, b) { calls.push([p, b]); return Promise.resolve({ ok: true, status: 200, j: { ok: true, featured: { id: 'F1', pid: 101, status: 'payment_reported', until: 0, createdAt: 5 } } }); }
@@ -40,7 +40,7 @@ test('orden: destacadas vigentes primero, con el orden del servidor; sin efecto 
     featCmp({ id: 2, featured: true, fUntil: Date.now() + 1e6 }, { id: 1, featured: true, fUntil: Date.now() + 1e6 }),
     featCmp({ id: 2, featured: true, fUntil: Date.now() - 1 }, { id: 3 }),
     (F.sort = 'p', featCmp({ id: 2, featured: true }, { id: 3 })),
-    (F.sort = 'd', F.q = 'dron', featCmp({ id: 2, featured: true }, { id: 3 })),
+    (F.sort = 'r', F.q = 'dron', featCmp({ id: 2, featured: true }, { id: 3 })),
     (F.q = '', DF.state.cfg.mode = 'off', featCmp({ id: 2, featured: true }, { id: 3 }))
   ]`);
   assert.deepStrictEqual([...r], [-1, 1, 1, 0, 0, 0, 0]);

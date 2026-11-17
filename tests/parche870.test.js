@@ -61,7 +61,8 @@ function sio(base) { // cliente mínimo del protocolo de Socket.io (WebSocket gl
 const rows = (dir, t) => JSON.parse(fs.readFileSync(path.join(dir, 'u2u-' + t + '.json'), 'utf8')).rows;
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0xff, 0xd9]);
 const item = (ph) => ({ t: 'Calculadora Casio', ph, mode: 'venta', price: 80, cat: 'Calculadoras', cond: 'Usado', desc: 'prueba' });
-const owner = { uid: 'u_dueno', name: 'Dueño', admin: false };
+const owner = { uid: 'u_dueno', name: 'Dueño', admin: true }; // admin: solo un admin puede usar claves internas de foto (v8.7.5)
+const IMG = 'data:image/png;base64,iVBORw0KGgo=';
 
 /* ---------------- 1 · fotos fuera del catálogo ---------------- */
 
@@ -146,7 +147,7 @@ test('cada mensaje es una fila de messages, queda guardado antes de confirmar y 
   const A = await t.account(1), B = await t.account(2);
   const sa = await sio(t.base), sb = await sio(t.base);
   sa.send('join', A); sb.send('join', B);
-  const pub = await sa.emit('new-product', item(['cam']));
+  const pub = await sa.emit('new-product', item([IMG]));
   assert.equal(pub.ok, true);
   const key = pub.id + '|' + B.uid;
 
@@ -175,7 +176,7 @@ test('si el mensaje no se puede guardar: ack con error, no se entrega ni queda e
   const A = await t.account(1), B = await t.account(2);
   const sa = await sio(t.base), sb = await sio(t.base);
   sa.send('join', A); sb.send('join', B);
-  const pub = await sa.emit('new-product', item(['cam']));
+  const pub = await sa.emit('new-product', item([IMG]));
   const key = pub.id + '|' + B.uid;
 
   const real = t.S._test.db.messages.put;

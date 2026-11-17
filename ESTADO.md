@@ -1,3 +1,46 @@
+ESTADO · versión 8.7.5 (correcciones v8.7.4 → v8.7.5)
+================================================================================================
+QUÉ SE CAMBIÓ
+ FASE 1 · Recuperación de contraseña: la clave nueva limpia el bloqueo de login (R1); /recover responde antes de enviar y, si el correo no sale, libera el cooldown (R2, R3); plantilla propia de recuperación (R4); quien recupera queda verificado y recibe la bienvenida (R5); cliente con «repite la contraseña», «Cambiar correo» e inicio de sesión automático (R6); línea para cuentas antiguas sin correo UPC (R8).
+ FASE 2 · Servidor: ids de publicaciones (descarta ids del futuro, sin colisiones) + scripts/10-revisar-ids.js (solo informa); unhandledRejection/uncaughtException y envoltorio de socket.on; db.drain aísla filas con TypeError; anuncios eliminados no reviven; pedidos (pausada, fechas, solapes, reservada); reportes de pago con formato inválido no castigan; delByUid devuelve promesa; registro sin pre-secuestro de correo (una cuenta sin verificar se reemplaza); cupo de correos IP→correo→global con EMAIL_IP_PER_HOUR (40).
+ FASE 3 · Cliente: Vision AI → «Plantillas rápidas» (máx. 3 fotos; claves internas de foto solo admin); quitados km, CO₂, notificaciones y «mercado» inventados (ahora mediana real por categoría, mín. 5 anuncios); modo local simulado eliminado; campus por publicación; fecha local (fd) y scroll al volver; total único en checkout; product-removed con mod; cid anti-duplicado; filtro de carrera inicial; sessionOut limpia datos locales; presencia solo {total} con debounce 2 s; ownerProfile sin correo.
+ FASE 4 · Saneamiento (NFC, sin controles/<>/invisibles), rechazo de nombres duplicados, quotaOf borra solo el más antiguo, login por cuenta+IP (5) y global por cuenta (30), cabeceras de seguridad, historial de 50 mensajes + history:more, ratings solo de vendedores con anuncios activos, índice messages(conv_key, ts).
+ FASE 5 · README corregido (sin escrow/cifrado de PIN, instalación completa), foco visible y prefers-reduced-motion global, aria-label/role/aria-live, foco del modal, CI también en pull_request, borrados public/img/test.txt. y env.example.
+
+PRUEBAS (salida real)
+ [check] 38 archivos .js revisados, 0 con error
+ npm test → # tests 74 · # pass 74 · # fail 0 · # cancelled 0 · # skipped 0
+ Nuevas: tests/recover.test.js, tests/fase2.test.js, tests/client-regresion.test.js (+ casos en comision, destacados). Ajustadas por cambio de comportamiento: bloque05 (cuenta sin verificar ya no da 409), bloque06 (nombres únicos), parche870 (fotos base64), destacados-ui (orden por defecto «r»).
+
+NO SE PUDO PROBAR
+ · Navegador real e iPhone (el cliente solo se probó con node --check y jsdom).
+ · Brevo real (la plantilla se probó con fetch simulado).
+ · PostgreSQL real (el aislamiento de filas de db.drain se probó con un pg simulado).
+ · Render (despliegue).
+ · Que las pruebas de recuperación fallen con el auth.js anterior (el intento se colgó y no se repitió).
+
+NO IMPLEMENTADO (queda para después)
+ · 3.7 opción mejor: 8 facultades servidas por GET /api/config/lists (se hizo el mapeo simple de carrera).
+ · 3.1 opcional: POST /api/ai/describe con ANTHROPIC_API_KEY.
+ · 4.3: CSP y salida de CDNs (Tailwind → public/tw.css con npx tailwindcss; alojar lucide y leaflet en public/vendor/; luego CSP: default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:). Requiere probar estilos en navegador.
+ · 4.3: compresión (dependencia nueva, necesita aprobación).
+ · 5.2: eventos product:status y product:update (se quitó «pausar/vender/editar» del README en vez de implementarlos).
+ · Turnstile en /register y /recover si hay abuso.
+ · Fotos a almacenamiento de objetos (bloque 9) antes de superar ~100 anuncios.
+
+RIESGOS A VIGILAR
+ · Nombres duplicados: dos personas con el mismo nombre (homónimos) no podrán registrarse con él; deben agregar segundo apellido o inicial.
+ · EMAIL_IP_PER_HOUR=40: en el WiFi del campus todos comparten IP; súbelo si aparece «Hay demasiadas solicitudes desde esta red».
+ · El cid anti-duplicado vive en memoria: un reinicio entre envío y reintento puede duplicar un mensaje.
+
+ACCIONES MANUALES PARA EL DUEÑO
+ 1. Render → Environment: EMAIL_PROVIDER=brevo, BREVO_API_KEY, EMAIL_FROM (remitente verificado en Brevo), EMAIL_DEV_MODE=false. Sin esto los códigos solo salen en los Logs y nadie recupera su cuenta. Probar un envío real con Brevo antes del piloto.
+ 2. Ejecutar scripts/10-revisar-ids.js (run-script, --dry-run) en dev y luego en prod; revisar a mano los ids sospechosos (el script no borra).
+ 3. Definir EMAIL_IP_PER_HOUR (por defecto 40; ya está en .env.example).
+ 4. Subir TODO el grupo junto a dev antes de main (server.js, auth.js, db.js, community.js, commission.js, featured.js, public/, tests/, README.md, .env.example, .github/workflows/test.yml, package.json).
+ 5. Cuentas antiguas con correo no UPC: no pueden recuperar la clave; deben escribir a U2U Oficial desde la app.
+ 6. Valorar Cloudflare Turnstile en /register y /recover si hay abuso (no implementado).
+================================================================================================
 ESTADO · versión 8.7.4 (comisión A+B, destacados C y D sobre el código 8.7.0)
 INTEGRACIÓN 8.7.4 (A+B+C+D unidas sobre tu repo 8.7.1, que ya traía la parte A: server.js, commission.js, auth.js, opnumbers.js y comision.test.js): se añadieron C (featured.js, tabla featured en db.js, server.js, opnumbers.add) y B (13-comision.js + index.html con socket.io local) y D (14-destacados.js; ganchos en 03-local-publicar.js y 12-cuenta.js). Comprobado: los 12 js de public/js eran idénticos a los que ya había recibido; server.js de C = tu server.js + solo los cambios de C. index.html: se usa el de la parte B (socket.io desde /socket.io/socket.io.js; client-smoke ignora esa ruta). env.example y .env.example: se añadieron solo los bloques que faltaban (ORDER_TTL_HOURS, COMMISSION_*, FEATURE_*).
 PRUEBAS en este entorno (sin express, socket.io, pg ni jsdom): 18 pasan (A 5, C 5, D 5, 3 de meta). NO ejecutadas aquí por falta de express/jsdom: bloque03, 05, 06, 07, parche870 y client-smoke → correrán en GitHub Actions al subir a dev. server.js completo NO se arrancó.

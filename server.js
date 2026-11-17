@@ -44,6 +44,13 @@ app.set('trust proxy', 1); // Render va detrás de un proxy: así req.ip es la I
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e6 }); // 1 MB por mensaje (fotos incluidas)
 
+app.use((req, res, next) => { // cabeceras de seguridad básicas (la CSP queda pendiente hasta alojar Tailwind, Lucide y Leaflet en el propio servidor)
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.send('ok'));
 // Foto de una publicación: se descarga solo cuando la pantalla la necesita y el navegador la guarda (ids nunca se reutilizan: caché larga + ETag)
@@ -78,6 +85,9 @@ const owners = new Map();   // pid -> uid del dueño
 const orders = new Map();   // id -> pedido
 const quotas = new Map();   // uid -> contadores de límites (sobreviven a re-join y a varios sockets del mismo usuario)
 let lastId = Date.now();
+const HISTORY_N = 50;
+const sentCids = new Set(); // cid de mensajes ya recibidos (conv|uid|cid): un reintento con el mismo cid no duplica el mensaje
+const deletedIds = new Set(); // ids de publicaciones eliminadas (moderación o dueño): no se pueden volver a publicar
 /* ---------- Comisión por venta (parte A, commission.js): COMMISSION_MODE=off|shadow|active, nace apagada ---------- */
 const fees = require('./commission')({
   orders, products, setStatus, saveOrder, pushOrder, maxPinFails: MAX_PIN_FAILS, lockMs: LOCK_MS,
@@ -100,27 +110,25 @@ let OFFICIAL = null;       // cuenta oficial (la admin): { uid, name } o null; s
 const DATA_IMG = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/;
 const isData = (f) => typeof f === 'string' && f.startsWith('data:');
 // Lo que viaja por Socket.io: las fotos en base64 se reemplazan por su URL (/foto/:pid/:n); las claves internas (cam, dron...) quedan igual
-const pubProduct = (p) => ({ ...p, ph: (p.ph || []).map((f, i) => (isData(f) ? '/foto/' + p.id + '/' + i : f)), ...(featured.isFeatured(p) ? { featured: true } : {}) });
+// perfil público del dueño (carrera/ciclo/sede solo si aceptó mostrarlos) y su verificación; nunca el correo
+const ownerProfile = (uid) => { const acc = uid && accounts.getByUid(uid); return acc ? { ...accounts.publicProfile(acc), verified: accounts.isVerified(acc) } : null; };
+const pubProduct = (p) => ({ ...p, ownerProfile: ownerProfile(p.ownerUid), ph: (p.ph || []).map((f, i) => (isData(f) ? '/foto/' + p.id + '/' + i : f)), ...(featured.isFeatured(p) ? { featured: true } : {}) });
 // Conversaciones y mensajes (v8.7.0): la fila de la conversación NO lleva los mensajes; cada mensaje es una fila de messages
 const convRow = (c) => { const { msgs, ...r } = c; return r; };
 const newMsgId = () => Date.now().toString(36) + crypto.randomBytes(4).toString('hex');
 
 const ownerOf = (pid) => owners.get(pid);
 const ownerOfConv = (c) => (c.pid === 0 ? OFFICIAL && OFFICIAL.uid : ownerOf(c.pid)); // pid 0 = chat directo con la cuenta oficial
-const presence = () => {
-  const r = io.sockets.adapter.rooms;
-  return {
-    total: io.engine.clientsCount,
-    uids: [...r.keys()].filter((k) => k.startsWith('u:')).map((k) => k.slice(2)), // quién está en línea
-  };
-};
+const presence = () => ({ total: io.engine.clientsCount }); // solo el total: no se expone quién está en línea
+let presTimer = null; // se avisa como máximo cada 2 s (evita una ráfaga de eventos por cada conexión)
+const pushPresence = () => { if (presTimer) return; presTimer = setTimeout(() => { presTimer = null; io.emit('presence', presence()); }, 2000); if (presTimer.unref) presTimer.unref(); };
 const num = (v, max) => Math.min(max, Math.max(0, Math.round(Number(v) || 0)));
 const fail = (code, error) => ({ ok: false, code, error });
 const notVerified = () => fail('NOT_VERIFIED', 'Verifica tu correo UPC para publicar, reservar o chatear.');
 function quotaOf(uid) {
   let q = quotas.get(uid);
   if (!q) {
-    if (quotas.size > 5000) quotas.clear();
+    if (quotas.size > 5000) quotas.delete(quotas.keys().next().value); // sale el más antiguo, no todos (así nadie recupera cupos de golpe)
     q = { hits: [], pubs: [], ords: [] }; quotas.set(uid, q);
   }
   return q;
@@ -161,7 +169,8 @@ const storageFull = () => storage.mb !== null && storage.mb >= storageLimit();
 /* ---------- Publicaciones ---------- */
 function cleanProduct(d, me) {
   d = d || {};
-  const t = String(d.t || '').trim().slice(0, 60);
+  const clean = (v, n, nl) => String(v == null ? '' : v).normalize('NFC').replace(nl ? /[\u0000-\u0009\u000b-\u001f\u007f<>]/g : /[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, n); // sin controles ni <>, en NFC (la descripción conserva los saltos de línea)
+  const t = clean(d.t, 60);
   if (t.length < 3) return { error: 'Título muy corto' };
   const mode = MODES.includes(d.mode) ? d.mode : 'venta';
   const price = num(d.price, 1e6), rent = num(d.rent, 1e5), dep = num(d.dep, 1e6);
@@ -171,8 +180,8 @@ function cleanProduct(d, me) {
   if (!ph.length) return { error: 'Falta al menos una foto' };
   let total = 0;
   for (const f of ph) {
-    // solo claves internas de la app (cam, dron...) o imágenes en base64: nunca URLs externas
-    const okKey = typeof f === 'string' && /^[a-z0-9]{2,12}$/.test(f);
+    // imágenes en base64 (o, solo para admin, claves internas de la app): nunca URLs externas
+    const okKey = !!(me && me.admin === true) && typeof f === 'string' && /^[a-z0-9]{2,12}$/.test(f); // las claves internas (catálogo oficial) solo las puede usar un admin
     const okImg = typeof f === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f) && f.length <= MAX_PHOTO;
     if (!okKey && !okImg) return { error: 'Foto no válida o muy pesada' };
     total += f.length;
@@ -180,7 +189,7 @@ function cleanProduct(d, me) {
   if (total > MAX_TOTAL) return { error: 'Las fotos pesan demasiado' };
 
   let id = parseInt(d.id, 10);
-  if (!Number.isSafeInteger(id) || id <= 1000) id = 0;
+  if (!Number.isSafeInteger(id) || id <= 1000 || id > Date.now() + 864e5) id = 0; // ids del futuro (envenenados) se descartan: el servidor asigna otro
   const cond = d.cond === 'Como nuevo' ? 'Semi nuevo' : d.cond; // compatibilidad con publicaciones antiguas
   const car = [...new Set(Array.isArray(d.car) ? d.car : [])].filter((c) => CAREERS.includes(c)).slice(0, CAREERS.length);
   return {
@@ -189,7 +198,7 @@ function cleanProduct(d, me) {
       cat: CATS.includes(d.cat) ? d.cat : 'Herramientas',
       cond: CONDS.includes(cond) ? cond : 'Usado',
       cp: Math.min(3, Math.max(0, parseInt(d.cp, 10) || 0)),
-      desc: String(d.desc || '').trim().slice(0, 500) || 'Sin descripción',
+      desc: clean(d.desc, 500, true) || 'Sin descripción',
       status: 'available', // available | reserved | sold
       ownerUid: me.uid, ownerName: me.name, ts: Date.now(),
       official: me.admin === true, // la insignia "Oficial ✓" la decide el servidor, nunca el cliente
@@ -209,6 +218,7 @@ async function publish(me, d) {
   if (r.error) return { res: { ok: false, error: r.error } };
   const p = r.p;
   if (p.id && community.isRemoved(p.id)) return { res: { ok: false, error: 'Esta publicación fue eliminada por moderación', removed: true } };
+  if (p.id && deletedIds.has(p.id)) return { res: { ok: false, error: 'Esta publicación fue eliminada', removed: true } }; // el cliente la quita de su copia local
   if (p.id) {
     const ow = owners.get(p.id);
     if (ow && ow !== me.uid) return { res: { ok: false, error: 'Publicación duplicada' } }; // nadie puede apropiarse de un id
@@ -221,7 +231,7 @@ async function publish(me, d) {
     if (Date.now() - storage.warnAt > 60000) { storage.warnAt = Date.now(); console.warn('[server] publicación rechazada (STORAGE_FULL): ' + storage.mb + ' MB de ' + storageLimit() + ' MB'); }
     return { res: fail('STORAGE_FULL', 'U2U llegó a su límite de espacio y por ahora no acepta publicaciones nuevas. Inténtalo más tarde.') };
   }
-  if (!p.id) p.id = lastId = Math.max(Date.now(), lastId + 1);
+  if (!p.id) { do { lastId = Math.max(Date.now(), lastId + 1); } while (products.has(lastId) || owners.has(lastId)); p.id = lastId; }
   owners.set(p.id, me.uid);
   products.set(p.id, p);
   try { await db.products.put(p, { sync: true }); }
@@ -301,13 +311,13 @@ function cancelPending(match) {
   return Promise.all(jobs);
 }
 // Eliminación por moderación: sale del catálogo pero la fila NO se borra de la base (se marca con deleted_at)
-async function removeProduct(pid) {
+async function removeProduct(pid, opt) {
   await cancelPending((o) => o.pid === pid);
   const p = products.get(pid);
   if (!p) return false;
-  products.delete(pid);
+  products.delete(pid); deletedIds.add(pid);
   const gone = featured.onGone(pid, 'deleted'); // cancela sus solicitudes de destacar (si había dinero de por medio: refundDue)
-  io.emit('product-removed', { id: pid }); // desaparece al instante para todos
+  io.emit('product-removed', { id: pid, mod: !!(opt && opt.mod) }); // desaparece al instante para todos; mod = la quitó un moderador
   try { await db.products.put({ ...p, deleted_at: Date.now() }, { sync: true }); }
   catch (e) { console.error('[server] no se pudo guardar la eliminación de una publicación:', e.message); }
   await gone;
@@ -342,8 +352,12 @@ let community; // se crea en boot(), cuando la base de datos ya cargó
 
 io.on('connection', (socket) => {
   socket.data = {};
+  // ningún handler (síncrono o async) puede tumbar el proceso: el error se registra y, si hay ack, se responde
+  const _on = socket.on.bind(socket);
+  const oops = (ev, args) => (e) => { console.error('[socket] ' + ev + ':', e && e.message); const ack = args[args.length - 1]; if (typeof ack === 'function') ack({ ok: false, error: 'Error del servidor. Inténtalo de nuevo.' }); };
+  socket.on = (ev, fn) => _on(ev, (...a) => { try { const r = fn(...a); if (r && typeof r.catch === 'function') r.catch(oops(ev, a)); } catch (e) { oops(ev, a)(e); } });
   community.attach(socket); // reportes, panel admin y reseñas
-  io.emit('presence', presence()); // avisa a todos que alguien abrió el enlace
+  pushPresence(); // avisa a todos que alguien abrió el enlace
 
   /* Entrada: la identidad (uid + secreto) la emitió el servidor al registrarse o iniciar sesión. */
   socket.on('join', (d) => {
@@ -365,12 +379,22 @@ io.on('connection', (socket) => {
     socket.emit('official', OFFICIAL); // nombre público de la cuenta oficial (nunca su usuario de login)
 
     // Todo lo privado: solo MIS conversaciones y MIS pedidos (como comprador o como dueño)
-    socket.emit('history', [...convs.values()].filter((c) => c.buyerId === uid || ownerOfConv(c) === uid));
+    socket.emit('history', [...convs.values()].filter((c) => c.buyerId === uid || ownerOfConv(c) === uid).map((c) => ({ ...c, msgs: c.msgs.slice(-HISTORY_N), more: c.msgs.length > HISTORY_N }))); // solo los últimos 50 por conversación; el resto, bajo demanda
     socket.emit('orders', [...orders.values()].filter((o) => o.buyerId === uid || o.ownerId === uid).map((o) => view(o, uid)));
     if (fees.mode() === 'active') socket.emit('commission', fees.snapshot(uid)); // estado de mi comisión (parte B lo muestra)
     community.onJoin(socket); // publicaciones eliminadas, mis reportes, promedios y (si es admin) el panel
     socket.emit('products', featured.order([...products.values()]).map(pubProduct)); // catálogo compartido (público): destacadas vigentes primero; las fotos van como URL
-    io.emit('presence', presence());
+    pushPresence();
+  });
+
+  // mensajes anteriores de MIS conversaciones, de a 50: history:more {key, before:ts}
+  socket.on('history:more', (d, ack) => {
+    const reply = (o) => typeof ack === 'function' && ack(o);
+    const g = guard(socket); if (g.err) return reply(g.err);
+    d = d || {}; const c = convs.get(String(d.key || '')), before = Number(d.before) || Infinity;
+    if (!c || !(c.buyerId === g.me.uid || ownerOfConv(c) === g.me.uid)) return reply({ error: 'Conversación no encontrada' });
+    const older = c.msgs.filter((m) => m.ts < before);
+    reply({ ok: true, key: c.key, msgs: older.slice(-HISTORY_N), more: older.length > HISTORY_N });
   });
 
   /* Nueva publicación -> se guarda (y solo entonces se confirma) y se reenvía a todos los demás conectados */
@@ -441,6 +465,9 @@ io.on('connection', (socket) => {
 
     // v8.7.0: el mensaje es una fila de la tabla messages y solo se entrega cuando YA quedó guardado.
     // Si la conversación es nueva, primero se guarda su fila (sin mensajes). Si algo falla no se entrega nada y el cliente puede reintentar.
+    const cid = String(d.cid || '').replace(/[^\w-]/g, '').slice(0, 24), ckey = key + '|' + me.uid + '|' + cid;
+    if (cid && sentCids.has(ckey)) return reply({ ok: true, dup: true }); // reintento del mismo envío: ya está guardado
+    if (cid) { sentCids.add(ckey); if (sentCids.size > 5000) sentCids.delete(sentCids.values().next().value); }
     const msg = { id: newMsgId(), uid: me.uid, from, name: me.name, text, ts: Date.now() };
     const fresh = convs.has(key) ? null : { key, pid, buyerId, buyerName: me.name, msgs: [], ts: msg.ts };
     try {
@@ -448,6 +475,7 @@ io.on('connection', (socket) => {
       await db.messages.put({ ...msg, key }, { sync: true });
     } catch (e) {
       console.error('[server] no se pudo guardar un mensaje:', e.message);
+      if (cid) sentCids.delete(ckey); // no se guardó: el reintento debe poder entrar
       return reply({ ok: false, error: 'No se pudo enviar el mensaje. Inténtalo de nuevo.' });
     }
     let c = convs.get(key);
@@ -487,11 +515,13 @@ io.on('connection', (socket) => {
     if (!p || !ownerId) return reply({ error: 'Producto de ejemplo: compra publicaciones de otros estudiantes' });
     if (ownerId === me.uid) return reply({ error: 'No puedes comprar tu propia publicación' });
     if (p.status === 'sold') return reply({ error: 'Este producto ya fue vendido' });
+    if (p.status === 'paused') return reply({ error: 'Esta publicación está pausada' });
 
     const mode = d.mode === 'alquiler' ? 'alquiler' : 'compra';
     if (mode === 'compra' && p.mode === 'alquiler') return reply({ error: 'Este producto solo se alquila' });
     if (mode === 'alquiler' && p.mode === 'venta') return reply({ error: 'Este producto solo se vende' });
     if (mode === 'compra' && p.status === 'reserved') return reply({ error: 'Otro estudiante ya inició la compra de este producto' });
+    if (mode === 'alquiler' && p.status === 'reserved') return reply({ error: 'Este producto está reservado' });
 
     const dup = [...orders.values()].find((o) => o.pid === pid && o.buyerId === me.uid && o.mode === mode && o.status === 'pending');
     if (dup) return reply({ error: 'Ya tienes un pedido pendiente por este producto' });
@@ -499,10 +529,17 @@ io.on('connection', (socket) => {
     // El monto lo calcula el servidor (no se confía en el cliente)
     const del = d.del === 'home' ? 'home' : 'meet';
     let days = 1, from = '', to = '', base = p.price;
-    if (mode === 'alquiler') {
-      const a = new Date(d.from), b = new Date(d.to);
-      days = Math.min(60, Math.max(1, Math.round((b - a) / 864e5) + 1 || 1));
-      from = String(d.from || '').slice(0, 10); to = String(d.to || '').slice(0, 10);
+    if (mode === 'alquiler') { // fechas validadas ANTES de calcular el monto (día de hoy en Lima, UTC-5)
+      const ISO = /^\d{4}-\d{2}-\d{2}$/, real = (x) => ISO.test(x) && !isNaN(Date.parse(x)) && new Date(Date.parse(x)).toISOString().slice(0, 10) === x; // descarta 2026-02-30
+      const lima = (ms) => new Date(ms - 5 * 3600e3).toISOString().slice(0, 10);
+      const f = String(d.from || ''), t = String(d.to || '');
+      if (!real(f) || !real(t)) return reply({ error: 'Elige fechas válidas' });
+      if (f < lima(now) || t < f || f > lima(now + 90 * 864e5)) return reply({ error: 'Las fechas no son válidas' });
+      const cnt = Math.round((Date.parse(t) - Date.parse(f)) / 864e5) + 1;
+      if (cnt > 60) return reply({ error: 'El alquiler máximo es de 60 días' });
+      const clash = [...orders.values()].some((o) => o.pid === pid && o.mode === 'alquiler' && o.status === 'pending' && o.from <= t && o.to >= f);
+      if (clash) return reply({ error: 'Esas fechas ya están reservadas' });
+      days = cnt; from = f; to = t;
       base = p.rent * days;
     }
     const total = base + (del === 'home' ? 15 : 0);
@@ -568,10 +605,10 @@ io.on('connection', (socket) => {
     if (socket.data.uid) socket.leave('u:' + socket.data.uid);
     socket.leave('admin');
     socket.data = {};
-    io.emit('presence', presence());
+    pushPresence();
   });
 
-  socket.on('disconnect', () => io.emit('presence', presence()));
+  socket.on('disconnect', () => pushPresence());
 });
 
 /* ---------- Cuenta oficial: catálogo inicial (seed.json) y bienvenida ---------- */
@@ -644,7 +681,8 @@ async function boot(opt) {
   opt = opt || {};
   await db.init();
   const rows = db.rows('products');
-  rows.forEach((p) => { lastId = Math.max(lastId, p.id); }); // los ids de eliminadas también cuentan: nunca se reutilizan
+  rows.forEach((p) => { if (Number.isSafeInteger(p.id) && p.id <= Date.now() + 864e5) lastId = Math.max(lastId, p.id); }); // los ids de eliminadas también cuentan; los ya envenenados (futuro) se ignoran
+  deletedIds.clear(); rows.filter((p) => p.deleted_at).forEach((p) => deletedIds.add(p.id));
   rows.filter((p) => !p.deleted_at).sort((a, b) => a.ts - b.ts).forEach((p) => { products.set(p.id, p); owners.set(p.id, p.ownerUid); });
   db.rows('orders').sort((a, b) => a.ts - b.ts).forEach((o) => { const p = products.get(o.pid); if (!o.ph && p && p.ph[0]) o.ph = p.ph[0]; orders.set(o.id, o); });
   fees.describe(); fees.rebuild();   // comisiones abiertas por vendedor y números de operación usados, desde los pedidos ya cargados
@@ -669,6 +707,8 @@ async function boot(opt) {
 
 if (require.main === module) {
   ['SIGTERM', 'SIGINT'].forEach((s) => process.on(s, () => { db.flush().then(() => process.exit(0), () => process.exit(1)); })); // guarda lo pendiente al apagar
+  process.on('unhandledRejection', (e) => console.error('[proc] unhandledRejection:', (e && e.stack) || e));
+  process.on('uncaughtException', (e) => console.error('[proc] uncaughtException:', (e && e.stack) || e));
   boot().catch((e) => { console.error('[boot] no se pudo iniciar:', e.message); process.exit(1); });
 }
 
@@ -676,7 +716,7 @@ if (require.main === module) {
 module.exports = {
   boot,
   _test: {
-    publish, products, orders, convs, db, io, server, pubProduct, view, expireOrders, loadChats, fees, featured,
+    publish, products, orders, convs, db, io, server, pubProduct, view, expireOrders, loadChats, fees, featured, removeProduct,
     setStorageMb: (mb) => { storage.mb = mb; storage.at = Date.now(); },
     close: async () => { io.close(); await db.flush(); },
   },

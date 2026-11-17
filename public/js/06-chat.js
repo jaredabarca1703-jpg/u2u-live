@@ -59,19 +59,20 @@ function onMsg(d){if(!LV.me)return;const k=d.conv.key;
  else{if(!mine){c.un=(c.un||0)+1;toast('💬 '+d.msg.name+': '+d.msg.text.slice(0,40));try{navigator.vibrate&&navigator.vibrate(80)}catch(e){}}if(S.s=='msgs')R(1)}
  navDot()}
 function openChat(pid){
- if(!window.io||!LV.me)return nav('chat',pid);
+ if(!window.io||!LV.me)return toast('Inicia sesión para chatear');
  const pp=P(pid);if(pp&&(pp.own==LV.me.uid||pp.s==ME))return toast('Esta es tu publicación: las consultas llegan a Mensajes');
  if(pp&&!pp.own)return toast('Producto de ejemplo: el chat funciona con publicaciones de otros estudiantes (botón +)');
  nav('lchat',pid+'|'+LV.me.uid)}
 function offerSend(id,v){const t='Hola, te ofrezco S/ '+v+' por '+P(id).t;
- if(!window.io||!LV.me){nav('chat',id);return send(id,t)}
+ if(!window.io||!LV.me)return toast('Inicia sesión para chatear');
  const pp=P(id);if(pp&&(pp.own==LV.me.uid||pp.s==ME))return toast('Esta es tu publicación');
  if(pp&&!pp.own)return toast('Producto de ejemplo: las ofertas funcionan con publicaciones de otros estudiantes');
  const k=id+'|'+LV.me.uid;nav('lchat',k);lsend(k,t)}
 function lsend(k,t){const i=$('#ci');t=(t||(i&&i.value)||'').trim();if(!t)return;
  if(!sock||!sock.connected)return toast('Sin conexión con el servidor, reintentando…');
  const[pid,bid]=k.split('|');
- sock.emit('send',{pid:+pid,buyerId:bid,text:t},r=>{if(r&&r.error)toast(r.error)});
+ LV.cid=LV.cid||{};const ck=k+'|'+t,cid=LV.cid[ck]||(LV.cid[ck]=Date.now().toString(36)+Math.random().toString(36).slice(2,8)); /* mismo cid en reintentos: el servidor no duplica */
+ sock.emit('send',{pid:+pid,buyerId:bid,text:t,cid},r=>{if(r&&r.error)toast(r.error);else delete LV.cid[ck]});
  if(i){i.value='';i.focus()}}
 V.lchat=key=>{const[pid,bid]=key.split('|'),p=(pid==0&&LV.off?offP():P(pid))||{id:0,t:'Producto no disponible en este dispositivo',ph:[],e:'📦',mode:'venta',price:0,s:0},c=LV.convs[key],own=bid!=LV.me.uid,
  title=own?esc(c?c.buyerName:'Interesado'):(p.id?esc(SEL[p.s].n):(c&&c.buyerId===LV.me.uid?'Vendedor':'Interesado'));
@@ -81,10 +82,13 @@ V.lchat=key=>{const[pid,bid]=key.split('|'),p=(pid==0&&LV.off?offP():P(pid))||{i
  <div id="ml" class="flex-1 overflow-y-auto no-sb p-4 space-y-2 bg-slate-50"></div>
  <div class="flex gap-2 overflow-x-auto no-sb px-3 pt-2 items-center"><span class="text-[10px] font-bold text-purple-600 shrink-0">${own?'⚡ Respuestas rápidas':'✨ IA sugiere'}</span>${LV.chips.map((q,i)=>`<button class="chip" onclick="lsend('${key}',LV.chips[${i}])">${esc(q)}</button>`).join('')}</div>
  <div class="flex gap-2 p-3"><input id="ci" onkeydown="event.key=='Enter'&&lsend('${key}')" autocomplete="off" placeholder="Escribe un mensaje..." class="flex-1 bg-slate-100 rounded-full px-4 py-3 text-sm outline-none"><button onclick="lsend('${key}')" aria-label="Enviar" class="bg-brand text-white rounded-full p-3"><i data-lucide="send" class="w-5"></i></button></div></div>`};
+/* historial por demanda: el servidor manda los últimos 50; el resto se pide de a 50 */
+function moreHist(k){const c=LV.convs[k];if(!c||!sock||!sock.connected||!c.msgs.length)return toast('Sin conexión con el servidor');
+ sock.emit('history:more',{key:k,before:c.msgs[0].ts},r=>{if(!r||!r.ok)return toast((r&&r.error)||'No se pudo cargar');const have=new Set(c.msgs.map(m=>m.id));c.msgs=r.msgs.filter(m=>!have.has(m.id)&&!DEL_MSGS[m.id]).concat(c.msgs);c.more=!!r.more;lchatR(k)})}
 function lchatR(k){const m=$('#ml');if(!m)return;const c=LV.convs[k];if(c){c.un=0;seenSet(k)}
  const lm=c&&c.msgs[c.msgs.length-1],stick=!m.firstElementChild||m.scrollHeight-m.scrollTop-m.clientHeight<80||!!(lm&&LV.me&&lm.uid==LV.me.uid); /* si estás leyendo mensajes viejos, un mensaje nuevo no te baja */
  const sy=m.scrollTop;
- m.innerHTML=c&&c.msgs.length?c.msgs.map(x=>{
+ m.innerHTML=(c&&c.more?`<button class="chip mx-auto block" onclick="moreHist('${k}')">Cargar mensajes anteriores</button>`:'')+(c&&c.msgs.length?c.msgs.map(x=>{
   const me=x.uid==LV.me.uid,del=`<button onclick="delMsgForMeAsk('${k}','${x.id}')" aria-label="Eliminar mensaje para mí" class="p-1 text-slate-300 hover:text-red-400 mb-0.5 transition" title="Eliminar para mí"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>`;
   return `<div class="flex items-end gap-1 ${me?'justify-end':''}">
    ${me?del:''}
@@ -96,5 +100,5 @@ function lchatR(k){const m=$('#ml');if(!m)return;const c=LV.convs[k];if(c){c.un=
    </div>
    ${me?'':del}
   </div>`;
- }).join(''):'<p class="text-center text-xs text-slate-400 mt-10">Escribe o usa una respuesta rápida para empezar.</p>';
+ }).join(''):'<p class="text-center text-xs text-slate-400 mt-10">Escribe o usa una respuesta rápida para empezar.</p>');
  m.scrollTop=stick?m.scrollHeight:sy;lucide.createIcons();navDot()}

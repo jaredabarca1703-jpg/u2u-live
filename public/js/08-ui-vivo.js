@@ -14,7 +14,7 @@ function sellerIdx(uid,name,cp,off){if(LV.me&&uid==LV.me.uid)return ME;let i=RS[
 function addRemote(d){if(!d||!d.id)return false;const ex=P(d.id);
  if(ex){if(d.status&&ex.status!=d.status){ex.status=d.status;return true}return false}
  const s=sellerIdx(d.ownerUid,d.ownerName,d.cp,d.official),mine=s==ME;if(mine)SEL[ME].cp=d.cp;else if(d.ownerProfile)SEL[s].prof=d.ownerProfile;
- PR.unshift({id:d.id,t:d.t,ph:d.ph,cat:d.cat,mode:d.mode,price:d.price,rent:d.rent,dep:d.dep,cond:d.cond,car:d.car||[],official:!!d.official,status:d.status||'available',d:mine?0.3:+(DK[d.cp]+((d.id*13)%9)/10).toFixed(1),s,x:50,y:44,ts:99,desc:d.desc,e:'📦',own:d.ownerUid,remote:!mine});
+ PR.unshift({id:d.id,t:d.t,ph:d.ph,cat:d.cat,mode:d.mode,price:d.price,rent:d.rent,dep:d.dep,cond:d.cond,car:d.car||[],official:!!d.official,status:d.status||'available',cp:d.cp,s,x:50,y:44,ts:99,desc:d.desc,e:'📦',own:d.ownerUid,remote:!mine});
  return true}
 function refreshCatalog(){if(S.s=='home')gridR();else if(S.s=='map'||S.s=='sedes')R(1)}
 function onNewProduct(d){if(!LV.me)return;if(addRemote(d)){refreshCatalog();toast('🆕 '+d.ownerName+' publicó: '+String(d.t).slice(0,30))}}
@@ -23,15 +23,15 @@ function onProducts(list){if(!LV.me)return;list=list||[];let n=0;list.forEach(d=
  const have=new Set(list.map(d=>d.id));PR.filter(p=>p.id>100&&!p.remote&&p.s==ME&&!have.has(p.id)&&p.status!='sold').forEach(p=>shareProduct(p,true));
  if(n)refreshCatalog()}
 function shareProduct(p,quiet){if(!sock||!sock.connected||!LV.me)return;
- sock.emit('new-product',{id:p.id,t:p.t,ph:p.ph,cat:p.cat,mode:p.mode,price:p.price,rent:p.rent,dep:p.dep,cond:p.cond,car:p.car||[],cp:SEL[ME].cp,desc:p.desc},r=>{
+ sock.emit('new-product',{id:p.id,t:p.t,ph:p.ph,cat:p.cat,mode:p.mode,price:p.price,rent:p.rent,dep:p.dep,cond:p.cond,car:p.car||[],cp:p.cp!=null?p.cp:SEL[ME].cp,desc:p.desc},r=>{
   if(!r||(r.ok&&r.id==p.id))return;
   if(r.removed){dropProduct(p.id);return}
   if(r.error){if(!quiet)toast('Se publicó solo en tu dispositivo: '+r.error);return}
   if(r.id&&r.id!=p.id){p.id=r.id;save()}})}
 
 /* Tras cada render: pintar mensajes, conservar el código que se está escribiendo y actualizar indicadores */
-const _R=R;R=function(keep){const pv={};document.querySelectorAll('.pin-in').forEach(i=>pv[i.dataset.o]=i.value);
- _R(keep);document.querySelectorAll('.pin-in').forEach(i=>{if(pv[i.dataset.o])i.value=pv[i.dataset.o]});
+const _R=R;R=function(keep,y){const pv={};document.querySelectorAll('.pin-in').forEach(i=>pv[i.dataset.o]=i.value);
+ _R(keep,y);document.querySelectorAll('.pin-in').forEach(i=>{if(pv[i.dataset.o])i.value=pv[i.dataset.o]});
  if(S.s=='lchat')lchatR(S.a);navDot();presUI()};
 liveStart();
 
@@ -68,7 +68,7 @@ async function myProductDelete(pid){
   if(!sock||!sock.connected)return toast('Sin conexión con el servidor');
   sock.emit('product:delete',{id:pid},r=>{
     if(r&&r.error)return toast(r.error);
-    dropProduct(pid,true);
+    dropProduct(pid,0);
     toast('Publicación eliminada');
     if(S.s==='detail')back();else if(S.s==='profile')R(1);
   });

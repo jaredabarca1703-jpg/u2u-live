@@ -31,7 +31,7 @@ const T = {
   reviews: { kt: 'text', cols: { order_id: ['text', (d) => d.orderId], seller_uid: ['text', (d) => d.sellerUid], ts: ['bigint', (d) => d.ts] }, uniq: [['order_id']], idx: ['seller_uid'] },
   removed: { kt: 'bigint', cols: { uid: ['text', (d) => d.uid || ''] } },
   convs: { kt: 'text', cols: { buyer_id: ['text', (d) => d.buyerId], pid: ['bigint', (d) => d.pid], ts: ['bigint', (d) => d.ts || 0] }, idx: ['buyer_id'] }, // chats (sin los mensajes desde v8.7.0)
-  messages: { kt: 'text', cols: { conv_key: ['text', (d) => d.key], ts: ['bigint', (d) => d.ts || 0] }, idx: ['conv_key'] }, // una fila por mensaje
+  messages: { kt: 'text', cols: { conv_key: ['text', (d) => d.key], ts: ['bigint', (d) => d.ts || 0] }, idx: ['conv_key', 'conv_key,ts'] }, // una fila por mensaje; (conv_key, ts) para paginar el historial
   featured: { kt: 'text', cols: { pid: ['bigint', (d) => d.pid], owner_uid: ['text', (d) => d.ownerUid], status: ['text', (d) => d.status], ts: ['bigint', (d) => d.createdAt || 0] }, idx: ['owner_uid', 'pid'] }, // destacados (parte C)
 };
 const KEY = { users: 'uid', sessions: 'h', products: 'id', orders: 'id', reports: 'id', reviews: 'id', removed: 'pid', convs: 'key', messages: 'id', featured: 'id' };
@@ -83,7 +83,7 @@ async function drain() {
       retry = 0;
     } catch (err) {
       try { if (c) await c.query('ROLLBACK'); } catch (_) {}
-      if (/^2[23]/.test(String(err.code))) { // datos inválidos o duplicados: se aíslan para no bloquear el resto
+      if (/^2[23]/.test(String(err.code)) || err instanceof TypeError) { // datos inválidos, duplicados o una fila mal formada (p. ej. sin username): se aíslan para no bloquear el resto
         for (const [, e] of batch) { try { await runOne(e); } catch (x) { console.error('[db] se omitió un registro de ' + e.t + ': ' + x.message); } }
       } else {
         for (const [k, e] of batch) if (!pend.has(k)) pend.set(k, e); // reintento (no pisa cambios más nuevos)
@@ -161,7 +161,7 @@ async function init() {
       const s = T[t], cols = Object.entries(s.cols);
       await q('CREATE TABLE IF NOT EXISTS ' + t + ' (k ' + s.kt + ' PRIMARY KEY, data jsonb NOT NULL' + cols.map(([n, [ty]]) => ', ' + n + ' ' + ty).join('') + ')');
       for (const [i, u] of (s.uniq || []).entries()) await q('CREATE UNIQUE INDEX IF NOT EXISTS ' + t + '_u' + i + ' ON ' + t + '(' + u.join(',') + ')');
-      for (const c of s.idx || []) await q('CREATE INDEX IF NOT EXISTS ' + t + '_' + c + ' ON ' + t + '(' + c + ')');
+      for (const c of s.idx || []) await q('CREATE INDEX IF NOT EXISTS ' + t + '_' + c.replace(/\W+/g, '_') + ' ON ' + t + '(' + c + ')');
     }
     await q('CREATE TABLE IF NOT EXISTS counters (key text PRIMARY KEY, win text NOT NULL, count int NOT NULL)');
     await q('DELETE FROM sessions WHERE exp < $1', [Date.now()]); // sesiones vencidas
@@ -231,10 +231,10 @@ function table(t) {
 }
 const api = { mode: MODE, init, flush, usage, readFiles, rows: (t) => (initial[t] || []).slice() };
 names.forEach((t) => { api[t] = table(t); });
-api.sessions.delByUid = (uid) => {
-  if (MODE === 'file') { for (const [h, s] of mem.sessions) if (s.uid === uid) mem.sessions.delete(h); fileMark('sessions'); return; }
+api.sessions.delByUid = (uid) => { // devuelve la promesa: quien cambia la clave espera a que el DELETE termine antes de emitir la sesión nueva
+  if (MODE === 'file') { for (const [h, s] of mem.sessions) if (s.uid === uid) mem.sessions.delete(h); fileMark('sessions'); return Promise.resolve(); }
   for (const [k, e] of pend) if (e.t === 'sessions' && e.doc && e.doc.uid === uid) pend.delete(k);
-  q('DELETE FROM sessions WHERE uid=$1', [uid]).catch((e) => console.error('[db] sesiones:', e.message));
+  return q('DELETE FROM sessions WHERE uid=$1', [uid]).catch((e) => console.error('[db] sesiones:', e.message));
 };
 /* Contadores por ventana (límites de envío de correo). Una sola sentencia atómica en PostgreSQL; en archivos
    no hay concurrencia real (un proceso, sin await entre leer y escribir). Devuelve el conteo tras sumar 1. */

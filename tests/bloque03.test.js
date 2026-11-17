@@ -22,7 +22,7 @@ function setup(env) {
   Object.assign(process.env, { DATA_DIR: dir }, env || {});
   return dir;
 }
-const item = (n) => ({ t: 'Calculadora ' + n, ph: ['cam'], mode: 'venta', price: 50 + n, cat: 'Calculadoras', cond: 'Usado', desc: 'prueba ' + n });
+const item = (n) => ({ t: 'Calculadora ' + n, ph: ['data:image/png;base64,iVBORw0KGgo='], mode: 'venta', price: 50 + n, cat: 'Calculadoras', cond: 'Usado', desc: 'prueba ' + n });
 const user = (uid) => ({ uid, name: 'Usuario ' + uid, admin: false });
 
 test('60 publicaciones con 3 cuentas no se borran y sobreviven a un reinicio', async () => {

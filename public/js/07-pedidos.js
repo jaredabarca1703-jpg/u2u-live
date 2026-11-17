@@ -48,7 +48,7 @@ function ordCard(o){const me=LV.me.uid,buyer=o.buyerId==me,sb=STB[o.status],pend
  <div class="flex gap-2 mt-3 flex-wrap"><button class="chip" onclick="orderChat('${o.id}')">💬 Chat</button>${pend?`<button class="chip" onclick="cancelOrder('${o.id}')">Cancelar pedido</button>`:''}${o.status=='completed'&&buyer?(o.reviewed?'<span class="text-xs text-emerald-700 self-center">✓ Reseña enviada</span>':`<button class="chip" onclick="rate('${o.id}')">⭐ Calificar</button>`):''}</div></div>`}
 function liveOrdersH(){if(LV.ld.o)return skRows(3);const l=Object.values(LV.orders).sort((a,b)=>b.ts-a.ts);
  return l.map(ordCard).join('')||empty('package','Aún no tienes pedidos','Cuando compres, alquiles o te compren algo, aparecerá aquí con su código de entrega.','Explorar productos',"root('home')")}
-const ordersTab=()=>(window.io&&LV.me)?liveOrdersH():(ST.orders.map((o,i)=>orderC(o,i)).join('')||empty('package','Aún no tienes pedidos','Cuando compres, alquiles o te compren algo, aparecerá aquí con su código de entrega.','Explorar productos',"root('home')"));
+const ordersTab=()=>(window.io&&LV.me)?liveOrdersH():empty('package','Inicia sesión para ver tus pedidos','Tus compras y alquileres aparecerán aquí con su código de entrega.','Explorar productos',"root('home')");
 
 /* ---------- Bandeja: chats + pedidos ---------- */
 function liveMsgs(){const l=Object.values(LV.convs).filter(c=>c.msgs.length).sort((a,b)=>b.msgs[b.msgs.length-1].ts-a.msgs[a.msgs.length-1].ts),
@@ -62,10 +62,9 @@ function liveMsgs(){const l=Object.values(LV.convs).filter(c=>c.msgs.length).sor
 const _vMsgs=V.msgs;V.msgs=a=>(window.io&&LV.me)?liveMsgs():_vMsgs(a);
 
 /* ---------- Indicadores ---------- */
-function presUI(){const p=LV.pres||{total:0,uids:[]},ok=sock&&sock.connected;
- const a=$('#pres');if(a)a.textContent=ok?`🟢 ${p.total} conectado${p.total==1?'':'s'} ahora`:(sock?'🔴 Conectando con el servidor…':'⚪ Modo local (sin servidor)');
- const b=$('#lst');if(b){let on=false;if(ok&&LV.me&&S.s=='lchat'){const[pid,bid]=String(S.a).split('|'),o=bid==LV.me.uid?(P(pid)||{}).own:bid;on=(p.uids||[]).includes(o)}
-  b.innerHTML=!ok?'<span class="text-red-500">● reconectando…</span>':on?'<span class="text-mint">● en línea</span>':'<span class="text-slate-400">○ desconectado</span>'}}
+function presUI(){const p=LV.pres||{total:0},ok=sock&&sock.connected;
+ const a=$('#pres');if(a)a.textContent=ok?`🟢 ${p.total} conectado${p.total==1?'':'s'} ahora`:(sock?'🔴 Conectando con el servidor…':'⚪ Sin conexión con el servidor');
+ const b=$('#lst');if(b){b.innerHTML=!ok?'<span class="text-red-500">● reconectando…</span>':'<span class="text-slate-400">Última conexión no disponible</span>'}}
 function navDot(){const b=document.querySelector('#nav [aria-label="Mensajes"]');if(!b)return;b.classList.add('relative');
  const n=Object.values(LV.convs).reduce((a,c)=>a+(c.un||0),0)+(LV.me?Object.values(LV.orders).filter(o=>o.status=='pending'&&o.ownerId==LV.me.uid).length:0);let d=b.querySelector('.ud');
  if(n&&!d){b.insertAdjacentHTML('beforeend','<span class="ud absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-pink-500 text-white rounded-full text-[10px] font-bold grid place-items-center"></span>');d=b.querySelector('.ud')}

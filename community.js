@@ -50,7 +50,7 @@ module.exports = function community(ctx) {
     const a = agg.get(uid);
     return a ? { avg: Math.round((a.sum / a.n) * 10) / 10, count: a.n } : { avg: 0, count: 0 };
   };
-  const allRatings = () => { const o = {}; for (const uid of agg.keys()) o[uid] = rating(uid); return o; };
+  const allRatings = () => { const o = {}, act = new Set([...products.values()].map((p) => p.ownerUid)); for (const uid of agg.keys()) if (act.has(uid)) o[uid] = rating(uid); return o; }; // solo vendedores con anuncios activos
 
   // límite por usuario y tipo de acción (los contadores viven en el usuario, ver quotaOf en server.js)
   const hit = (me, key, max, ms) => {
@@ -152,7 +152,7 @@ module.exports = function community(ctx) {
         const p = products.get(pid);
         const rep = R.data.reports.find((r) => r.pid === pid);
         if (!p && !rep) return reply({ error: 'Publicación no encontrada' });
-        await removeProduct(pid);
+        await removeProduct(pid, { mod: true });
         if (!(await markRemoved(pid, p ? p.ownerUid : rep.ownerUid))) return reply({ error: 'No se pudo guardar la eliminación. Inténtalo de nuevo.' });
         resolve((r) => r.pid === pid, 'actioned', 'deleted', me.name);
         pushAdmin();
@@ -174,12 +174,12 @@ module.exports = function community(ctx) {
         const u = accounts.getByUid(uid);
         if (!u) return reply({ error: 'Usuario no encontrado' });
         if (u.admin) return reply({ error: 'No puedes bloquear al administrador' });
-        accounts.setBlocked(uid, true);
+        await accounts.setBlocked(uid, true);
         try { await saveUser(u); } catch (e) { console.error('[community] no se pudo guardar el bloqueo:', e.message); return reply({ error: 'No se pudo guardar el bloqueo. Inténtalo de nuevo.' }); }
         io.in('u:' + uid).emit('blocked');
         io.in('u:' + uid).disconnectSockets(true); // desde aquí ya no puede actuar (guard también lo comprueba en cada evento)
         const mine = [...products.values()].filter((p) => p.ownerUid === uid);
-        await Promise.all(mine.map(async (p) => { await removeProduct(p.id); await markRemoved(p.id, uid); }));
+        await Promise.all(mine.map(async (p) => { await removeProduct(p.id, { mod: true }); await markRemoved(p.id, uid); }));
         await cancelPending((o) => o.buyerId === uid || o.ownerId === uid);
         resolve((r) => r.ownerUid === uid, 'actioned', 'blocked', me.name);
         pushAdmin();
@@ -190,7 +190,7 @@ module.exports = function community(ctx) {
         const uid = String((d || {}).uid || '');
         const u = accounts.getByUid(uid);
         if (!u || u.admin) return reply({ error: 'Usuario no encontrado' });
-        accounts.setBlocked(uid, false);
+        await accounts.setBlocked(uid, false);
         try { await saveUser(u); } catch (e) { console.error('[community] no se pudo guardar el desbloqueo:', e.message); return reply({ error: 'No se pudo guardar el desbloqueo. Inténtalo de nuevo.' }); }
         pushAdmin();
         reply({ ok: true });

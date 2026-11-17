@@ -32,7 +32,8 @@ async function start(env, opt) {
   };
   return { S, A, dir, codes, post: (u, b, t) => call('POST', u, b, t), get: (u, t) => call('GET', u, null, t), stop: () => S._test.close() };
 }
-const reg = (o) => ({ name: 'Ana Prueba', email: 'ana.prueba@upc.edu.pe', password: 'Clave-segura-9', cond: 'estudiante', career: 'Ing. Civil', cycle: 5, campus: 'Monterrico', terms: true, ...o });
+const uniq = (e) => 'Ana ' + String(e).split('@')[0].replace(/\d/g, (d) => 'abcdefghij'[d]).replace(/[^a-z]/gi, ''); // v8.7.5: no se admiten dos nombres iguales
+const reg = (o) => ({ name: o && o.email && !o.name ? uniq(o.email) : 'Ana Prueba', email: 'ana.prueba@upc.edu.pe', password: 'Clave-segura-9', cond: 'estudiante', career: 'Ing. Civil', cycle: 5, campus: 'Monterrico', terms: true, ...o });
 function clock() { // reloj simulado, a mitad de hora (no cruza el límite de la ventana horaria)
   const real = Date.now, base = Math.floor(real() / H) * H + H / 2;
   let off = 0; Date.now = () => base + off;

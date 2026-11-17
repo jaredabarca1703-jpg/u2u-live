@@ -4,7 +4,7 @@ const LV={off:null,ld:{p:0,h:0,o:0},me:null,pref:null,idc:null,convs:{},orders:{
 let sock=null,MT='chats';
 try{LV.pref=JSON.parse(localStorage.getItem('u2u7')||'null')}catch(e){}
 PR.forEach(p=>{if(p.cond=='Como nuevo')p.cond='Semi nuevo'});
-const uname=()=>LV.me?LV.me.name:'Jared',tm=ts=>new Date(ts).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+const uname=()=>LV.me?LV.me.name:'',tm=ts=>new Date(ts).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
 /* identidad por dispositivo: uid público + secreto privado. El servidor solo deja entrar con ambos,
    así nadie puede suplantarte para leer tus chats ni tus pedidos. (Dos personas = dos dispositivos o navegadores.) */
 const rnd=n=>{const a=new Uint8Array(n);try{crypto.getRandomValues(a)}catch(e){for(let i=0;i<n;i++)a[i]=Math.random()*256}return[...a].map(b=>b.toString(16).padStart(2,'0')).join('')};
@@ -33,7 +33,7 @@ function liveStart(){if(!window.io)return;
  sock.on('order',onOrder);
  sock.on('blocked',()=>sessionOut('Tu cuenta fue bloqueada por incumplir las normas de la comunidad.'));
  sock.on('removed',l=>(l||[]).forEach(id=>dropProduct(id)));
- sock.on('product-removed',d=>dropProduct(d.id,1));
+ sock.on('product-removed',d=>dropProduct(d.id,d.mod?1:0));
  sock.on('reported',l=>{LV.rep=new Set((l||[]).map(Number));if(S.s=='detail')R(1)});
  sock.on('ratings',m=>{LV.rt=m||{};if(['detail','seller','profile'].includes(S.s))R(1)});
  sock.on('rating',d=>{LV.rt[d.uid]=d.count?{avg:d.avg,count:d.count}:undefined;delete LV.rv[d.uid];if(['detail','seller','profile'].includes(S.s))R(1)});

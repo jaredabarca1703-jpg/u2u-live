@@ -127,5 +127,5 @@ function confirmOrder(id){const i=document.querySelector(`.pin-in[data-o="${id}"
 {const f=window.lsend;if(typeof f==='function')window.lsend=function(k){if(comRestricted()&&!comToOff(k)){toast(COM_MSG);comModal();return}return f.apply(this,arguments)}}
 {const f=window.authOk;if(typeof f==='function')window.authOk=function(){const r=f.apply(this,arguments);COM.cm=null;COM.cfg=null;comBind();comLoad();return r}}
 {const f=window.sessionOut;if(typeof f==='function')window.sessionOut=function(){COM.cm=null;COM.cfg=null;COM.adm={items:[],summary:null,filter:'',loading:false};return f.apply(this,arguments)}}
-{const f=window.R;if(typeof f==='function')window.R=function(keep){f.call(this,keep);comUI()}}
+{const f=window.R;if(typeof f==='function')window.R=function(keep,y){f.call(this,keep,y);comUI()}}
 comBind();

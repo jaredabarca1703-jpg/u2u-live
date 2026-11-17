@@ -87,3 +87,13 @@ test('cancelar por eliminación marca refundDue solo si había dinero de por med
   assert.deepStrictEqual([mine('s2').status, mine('s2').refundDue, b.featuredUntil || 0], ['canceled', false, 0]);
   assert.strictEqual((await f.reportYape('s2', rb, { operationNumber: 'PAG0002', senderName: 'Beto' })).status, 409); // ya no admite pago
 });
+
+test('v8.7.5 · 6 reportes con formato inválido no activan RATE_LIMIT; el válido pasa (destacados)', async () => {
+  const { f, product } = setup(PAID);
+  const p = product('s1'), id = (await f.request({ uid: 's1' }, { pid: p.id })).body.featured.id;
+  for (let i = 0; i < 6; i++) {
+    const bad = await f.reportYape('s1', id, i % 2 ? { operationNumber: 'AB1234', senderName: '' } : { operationNumber: '!', senderName: 'Juan' });
+    assert.strictEqual(bad.status, 400);
+  }
+  assert.strictEqual((await f.reportYape('s1', id, { operationNumber: 'VALIDO01', senderName: 'Juan' })).status, 200);
+});

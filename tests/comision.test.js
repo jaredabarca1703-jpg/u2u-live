@@ -93,3 +93,14 @@ test('scope=new: responde en chats abiertos pero no abre chats nuevos, ni public
   const again = await fees.reportYape('s1', o.id, { operationNumber: 'zz1111', senderName: 'Juan' });
   assert.match(again.body.error, /ya fue usado/);
 });
+
+test('v8.7.5 · 6 reportes con formato inválido no activan RATE_LIMIT; el válido pasa (comisión)', async () => {
+  const { fees, order } = setup();
+  const o = order('s1', 100);
+  await fees.confirmDelivery(o.id, 's1', '123456');
+  for (let i = 0; i < 6; i++) {
+    const bad = await fees.reportYape('s1', o.id, i % 2 ? { operationNumber: 'AB1234', senderName: 'x' } : { operationNumber: '!!', senderName: 'Juan' });
+    assert.strictEqual(bad.status, 400); // formato inválido: error de validación, nunca 429
+  }
+  assert.strictEqual((await fees.reportYape('s1', o.id, { operationNumber: 'OK12345', senderName: 'Juan' })).status, 200);
+});

@@ -40,7 +40,9 @@ function profLine(s){const p=s&&s.prof;if(!p||!(p.career||p.cycle||p.campus))ret
 const verTag=s=>s&&s.prof&&s.prof.verified?'<p class="text-[11px] font-semibold text-emerald-600">Correo UPC verificado ✓</p>':'';
 const verBox=s=>s&&s.prof&&s.prof.verified?'<div class="bg-emerald-50 text-emerald-800 text-xs rounded-xl p-3 mt-3 flex gap-2"><i data-lucide="shield-check" class="w-5"></i>Correo UPC verificado ✓</div>':'';
 /* Mis datos del servidor → SEL[ME] (lo que usan las tarjetas) y banderas de LV.me. Va DESPUÉS de liveJoin (que crea LV.me). La sede elegida queda como sede por defecto al publicar. */
-function meSet(u){const m=SEL[ME];
+/* grupo del filtro «Para tu carrera» según la carrera del perfil (null si no hay mapeo: queda «Todas») */
+const carrGroup=c=>{c=String(c||'');if(/civil/i.test(c))return 'Ing. Civil';if(/arquitectura/i.test(c))return 'Arquitectura';if(/sistemas|software/i.test(c))return 'Sistemas';if(/moda/i.test(c))return 'Diseño de Moda';const f=UPC_FACULTIES.find(g=>g.items.includes(c));return f?({Negocios:'Negocios',Comunicaciones:'Comunicaciones','Ciencias de la Salud':'Salud'}[f.f]||null):null};
+function meSet(u){const m=SEL[ME];{const g=carrGroup(u.career);if(g&&F.car=='Todas')F.car=g}
  m.prof=u.condition?{career:u.career,cycle:u.cycle,campus:u.campus,verified:!!u.verified&&/@upc\.edu\.pe$/.test(u.email||'')}:null;
  m.car=u.career?careerLb(u.career):'Estudiante UPC';m.ci=u.cycle||'—';
  const k=campusIdx(u.campus);if(k>=0)m.cp=k;
@@ -135,23 +137,31 @@ function rcOpen(mine){RC=RC0();if(mine&&ACC&&ACC.email)RC.email=ACC.email;else i
 V.recover=()=>{const r=RC;
  if(r.step==1)return hd('Recuperar contraseña')+`<div class="px-7 pt-6 pb-8"><p class="text-sm text-slate-600 mb-4">Escribe tu correo UPC y te enviaremos un código de 6 dígitos.</p>
  <form onsubmit="event.preventDefault();rcGo()" novalidate><label class="${FLB}" for="r_mail">Correo UPC</label><input id="r_mail" type="email" class="inp" maxlength="254" autocomplete="email" inputmode="email" ${FAU} placeholder="usuario@upc.edu.pe" value="${esc(r.email)}" oninput="RC.email=this.value">
- <p id="r_er" role="alert" class="text-red-500 text-xs min-h-[1.25rem] text-center"></p><button id="r_btn" type="submit" class="btn">Enviar código</button></form></div>`;
+ <p id="r_er" role="alert" class="text-red-500 text-xs min-h-[1.25rem] text-center"></p><button id="r_btn" type="submit" class="btn">Enviar código</button></form>
+ <p class="text-[11px] text-slate-400 text-center mt-3">¿Tu cuenta es anterior y no usa correo UPC? Escríbele a U2U Oficial desde la app.</p></div>`;
  cdStart();
  return hd('Recuperar contraseña')+`<div class="px-7 pt-6 pb-8"><p class="text-sm text-slate-600 mb-4">Si <b>${esc(r.email)}</b> está registrado, enviamos un código de 6 dígitos (vence en 10 minutos). Escríbelo y elige tu contraseña nueva.</p>
  <form onsubmit="event.preventDefault();rcReset()" novalidate><label class="${FLB}" for="r_code">Código</label><input id="r_code" class="inp text-center text-xl font-bold tracking-[.4em]" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)">
  <label class="${FLB}" for="r_pw">Contraseña nueva</label>${pwField('r_pw','new-password','Mínimo 8 caracteres')}
+ <label class="${FLB}" for="r_pw2">Repite la contraseña</label>${pwField('r_pw2','new-password','Repite la contraseña')}
  <p id="r_er" role="alert" class="text-red-500 text-xs min-h-[1.25rem] text-center"></p><button id="r_btn" type="submit" class="btn">Cambiar contraseña</button></form>
+ <button class="w-full py-2 text-sm text-slate-500" onclick="RC.step=1;RC.left=0;R(1)">¿Te equivocaste de correo? Cambiar correo</button>
  <button id="rc_rs" class="w-full py-3 font-semibold text-brand disabled:opacity-50" onclick="rcResend()" ${r.left>0?'disabled':''}>${rsLabel(r)}</button></div>`};
 async function rcGo(){if(RC.busy)return;const er=$('#r_er'),b=$('#r_btn'),m=upcMail(RC.email);er.textContent='';
  if(!m)return er.textContent='Usa tu correo UPC: usuario@upc.edu.pe.';
  RC.busy=true;b.disabled=true;b.textContent='Enviando…';const r=await api('recover',{email:m});RC.busy=false;
  if(r.ok){RC.email=m;RC.step=2;RC.left=r.j.resendIn||60;return R(1)}
  b.disabled=false;b.textContent='Enviar código';er.textContent=humanErr(r)}
-async function rcReset(){if(RC.busy)return;const er=$('#r_er'),b=$('#r_btn'),code=(($('#r_code')||{}).value||'').replace(/\D/g,''),pw=($('#r_pw')||{}).value||'';er.textContent='';
+async function rcReset(){if(RC.busy)return;const er=$('#r_er'),b=$('#r_btn'),code=(($('#r_code')||{}).value||'').replace(/\D/g,''),pw=($('#r_pw')||{}).value||'',pw2=($('#r_pw2')||{}).value||'';er.textContent='';
  if(code.length!=6)return er.textContent='Escribe los 6 dígitos del código.';
  if(pw.length<8)return er.textContent='La contraseña nueva debe tener al menos 8 caracteres.';
+ if(pw!==pw2)return er.textContent='Las contraseñas no coinciden.';
  RC.busy=true;b.disabled=true;b.textContent='Guardando…';const em=RC.email,r=await api('recover/reset',{email:em,code,password:pw});RC.busy=false;
- if(r.ok&&r.j.ok){const mine=!!LV.me;RC=RC0();LG.id=em;if(mine)return sessionOut('Contraseña cambiada. Inicia sesión con la nueva.');S.st=[];S.s='login';R();return toast('Contraseña cambiada. Ya puedes iniciar sesión.')}
+ if(r.ok&&r.j.ok){RC=RC0();LG.id=em;
+  if(LV.me){try{sessionOut()}catch(e){}} /* el servidor ya rotó el secret y cerró los sockets */
+  const l=await api('login',{id:em,password:pw});
+  if(l.ok&&l.j.token){toast('Contraseña cambiada ✓');return authOk(l.j)}
+  S.st=[];S.s='login';R();return toast('Contraseña cambiada. Inicia sesión con la nueva.')}
  b.disabled=false;b.textContent='Cambiar contraseña';er.textContent=humanErr(r)}
 async function rcResend(){if(RC.busy||RC.left>0)return;RC.busy=true;cdBtn();const er=$('#r_er');if(er)er.textContent='';
  const r=await api('recover',{email:RC.email});RC.busy=false;
@@ -205,5 +215,5 @@ const LOCKQ='[onclick^="startPub("],[onclick^="openChat("],[onclick^="offerM("],
 function lockUI(){const m=lockMsg(),v=$('#v');document.querySelectorAll('.acc-lock').forEach(e=>e.remove());if(!m)return;
  document.querySelectorAll(LOCKQ).forEach(b=>{b.setAttribute('aria-disabled','true');b.classList.add('opacity-50')});
  if(S.s=='home'&&v){v.insertAdjacentHTML('afterbegin',`<div class="acc-lock mx-5 mt-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 p-3 text-xs flex gap-2 items-start"><i data-lucide="mail" class="w-5 shrink-0"></i><div class="flex-1"><b class="block text-sm">${LV.me.pending?'Cuenta pendiente de aprobación':'Cuenta sin verificar'}</b>${LV.me.pending?'El equipo U2U la revisará.':'Si no verificas en 72 h, se elimina.'} Mientras tanto no puedes publicar, reservar ni chatear.${LV.me.pending?'':'<button class="block mt-2 font-bold text-brand" onclick="nav(\'verify\')">Ingresar código</button>'}</div></div>`);lucide.createIcons()}}
-{const _R2=R;R=function(keep){_R2(keep);lockUI()}}
+{const _R2=R;R=function(keep,y){_R2(keep,y);lockUI()}}
 bootInit();

@@ -232,7 +232,7 @@
   };
   const _op = onProducts; onProducts = function (list) { D.rank = {}; (list || []).forEach((d, i) => { D.rank[d.id] = i; }); return _op(list); };
   window.featCmp = (a, b) => { // orden del servidor: destacadas vigentes primero y, entre ellas, el orden (rotación) que mandó el servidor
-    if (!on() || F.sort !== 'd' || F.q) return 0;
+    if (!on() || F.sort !== 'r' || F.q) return 0;
     const fa = fOn(a), fb = fOn(b); if (fa !== fb) return fa ? -1 : 1;
     return fa ? (D.rank[a.id] ?? 1e9) - (D.rank[b.id] ?? 1e9) : 0;
   };

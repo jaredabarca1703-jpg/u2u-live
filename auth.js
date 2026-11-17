@@ -4,7 +4,7 @@
  * - Código de verificación: crypto.randomInt, se guarda SOLO su hash (con sal); vence a los 10 min, máx. 5 intentos
  *   (users.data.verify), reenvío cada 60 s. Sin verificar: no publica, reserva ni chatea (lo exige server.js con NOT_VERIFIED).
  *   Envío (bloque 6): Brevo por fetch (EMAIL_PROVIDER, BREVO_API_KEY, EMAIL_FROM); sin proveedor o con EMAIL_DEV_MODE=true el código sale
- *   en la consola. Límites en la tabla counters (5/hora por correo, 200/hora por IP, EMAIL_DAILY_LIMIT al día). REGISTRO_MANUAL=true:
+ *   en la consola. Límites en la tabla counters (5/hora por correo, EMAIL_IP_PER_HOUR/hora por IP (40), EMAIL_DAILY_LIMIT al día). REGISTRO_MANUAL=true:
  *   la cuenta queda pendiente hasta que la cuenta oficial la apruebe. Las cuentas sin verificar se borran a las 72 h.
  * - v8.6.7 (bloque 7): login por correo (con usuario solo entran cuentas anteriores a la verificación y la oficial), /api/me ampliado,
  *   PUT /api/me, recuperación de contraseña con código (respuestas iguales exista o no el correo) y cambio de contraseña:
@@ -50,7 +50,8 @@ const REG_CAREERS = [
 const CYCLES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 /* Correo (bloque 6) */
-const EMAIL_PER_HOUR = 5, IP_PER_HOUR = 200, UNVERIFIED_MS = 72 * 3600e3;
+const EMAIL_PER_HOUR = 5, UNVERIFIED_MS = 72 * 3600e3;
+const ipPerHour = () => { const n = parseInt(process.env.EMAIL_IP_PER_HOUR, 10); return Number.isFinite(n) && n > 0 ? n : 40; }; // EMAIL_IP_PER_HOUR (por defecto 40)
 const EMAIL_LIMIT_MSG = 'Ya se enviaron ' + EMAIL_PER_HOUR + ' códigos a este correo en la última hora. Intenta más tarde.';
 const envBool = (n) => String(process.env[n] || '').trim().toLowerCase() === 'true';
 const dailyLimit = () => { const n = parseInt(process.env.EMAIL_DAILY_LIMIT, 10); return Number.isFinite(n) && n > 0 ? n : 250; };
@@ -105,6 +106,9 @@ const dummyHash = () => dummy || (dummy = hashPw(crypto.randomBytes(8).toString(
 
 /* ---------- límite de intentos ---------- */
 const hits = new Map();
+// contadores de login: por cuenta+IP (tope 5) y global por cuenta (tope 30): un tercero no puede bloquear a otra persona desde cualquier IP
+const LOGIN_GLOBAL = 30;
+function clearLogin(id) { const p = 'acc:' + id + '|'; for (const k of [...hits.keys()]) if (k.startsWith(p)) hits.delete(k); hits.delete('accg:' + id); }
 function bucket(key, ms) {
   const now = Date.now();
   let b = hits.get(key);
@@ -165,7 +169,7 @@ function fromReq(req) {
 
 /* ---------- validación ---------- */
 const USER_RE = /^[a-z0-9_.]{3,20}$/i;
-const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, n);
+const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '').replace(/\s+/g, ' ').trim().slice(0, n); // sin controles, <>, ceros de ancho cero ni marcas bidireccionales
 const ip = (req) => req.ip || (req.socket && req.socket.remoteAddress) || 'x';
 /* Correo UPC: minúsculas, sin espacios, un solo @ y dominio EXACTO upc.edu.pe (no acepta subdominios ni sufijos).
    Sin "+" ni caracteres raros en la parte local: un buzón = una cuenta. Devuelve el correo normalizado o null. */
@@ -204,11 +208,15 @@ async function providerMailer(m) {
   if (!c.live) return console.log('[auth] (modo consola) código de ' + (rec ? 'recuperación' : 'verificación') + ' de la cuenta ' + m.uid + ': ' + m.code + ' · vence en 10 min');
   const from = parseFrom(c.from);
   if (!from) throw new Error('EMAIL_FROM no es válido');
+  const first = html(String(m.name).split(' ')[0]);
+  const subject = rec ? 'Tu código para restablecer la contraseña de U2U: ' + m.code : 'Tu código de U2U: ' + m.code;
+  const body = rec
+    ? '<p>Hola ' + first + ', pediste restablecer tu contraseña de U2U. Tu código es:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">' + m.code + '</p><p>Vence en 10 minutos. Si no fuiste tú, ignora este correo: tu contraseña no cambia.</p>'
+    : '<p>Hola ' + first + ', tu código de verificación de U2U es:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">' + m.code + '</p><p>Vence en 10 minutos. Si no creaste una cuenta en U2U, ignora este correo.</p>';
   const r = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST', headers: { 'api-key': c.key, 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify({
-      sender: from, to: [{ email: m.to, name: m.name }], subject: (rec ? 'Recupera tu cuenta de U2U: ' : 'Tu código de U2U: ') + m.code,
-      htmlContent: '<p>Hola ' + html(String(m.name).split(' ')[0]) + ', tu código de verificación de U2U es:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">' + m.code + '</p><p>Vence en 10 minutos. Si no creaste una cuenta en U2U, ignora este correo.</p>',
+      sender: from, to: [{ email: m.to, name: m.name }], subject, htmlContent: body,
     }),
     signal: AbortSignal.timeout(10000),
   });
@@ -219,12 +227,13 @@ async function sendCode(u, code, kind) { // true si salió; nunca lanza: la cuen
   try { await (mailer || providerMailer)({ to: u.email, name: u.name, uid: u.uid, code, kind }); return true; }
   catch (e) { console.error('[auth] no se pudo enviar el código: ' + e.message); return false; }
 }
-/* Límites de envío en Postgres (tabla counters, UPSERT atómico): 5/hora por correo, 200/hora por IP (tope alto: en el campus
-   todos comparten IP) y EMAIL_DAILY_LIMIT global por día (hora de Lima). Cada intento cuenta. null = se puede enviar; si no, el mensaje. */
+/* Límites de envío en Postgres (tabla counters, UPSERT atómico): 5/hora por correo, EMAIL_IP_PER_HOUR/hora por IP (en el campus
+   todos comparten IP: súbelo si hace falta) y EMAIL_DAILY_LIMIT global por día (hora de Lima). Cada intento cuenta. null = se puede enviar; si no, el mensaje. */
 async function emailBudget(email, address) {
   const now = Date.now(), hr = String(Math.floor(now / 3600e3)), day = new Date(now - 5 * 3600e3).toISOString().slice(0, 10);
+  // orden IP -> correo -> global: una IP bloqueada no consume el cupo del correo ni el global
+  if (await store.counters.hit('mail:i:' + sha(address).slice(0, 32), hr) > ipPerHour()) return 'Hay demasiadas solicitudes desde esta red. Intenta en unos minutos.';
   if (await store.counters.hit('mail:e:' + sha(email).slice(0, 32), hr) > EMAIL_PER_HOUR) return EMAIL_LIMIT_MSG;
-  if (await store.counters.hit('mail:i:' + sha(address).slice(0, 32), hr) > IP_PER_HOUR) return 'Hay demasiadas solicitudes desde esta red. Intenta en unos minutos.';
   if (await store.counters.hit('mail:day', day) > dailyLimit()) return 'Hoy se alcanzó el límite, vuelve mañana.';
   return null;
 }
@@ -249,8 +258,10 @@ async function applyPassword(u, pw) { // se guarda ANTES de confirmar; si no se 
   const hash = await hashPw(pw), old = { hash: u.hash, secret: u.secret };
   u.hash = hash; u.secret = crypto.randomBytes(24).toString('hex');
   try { await saveUser(u); } catch (e) { u.hash = old.hash; u.secret = old.secret; throw e; }
+  // la clave nueva reinicia el bloqueo por intentos fallidos (clave: correo y usuario en minúsculas)
+  clearLogin(String(u.email).toLowerCase()); clearLogin(String(u.username).toLowerCase());
   (u.sessions || []).forEach((s) => bySess.delete(s.h)); u.sessions = [];
-  store.sessions.delByUid(u.uid);
+  await store.sessions.delByUid(u.uid); // espera: un DELETE tardío no puede borrar la sesión nueva
   if (onRot) { try { onRot(u.uid); } catch (e) { console.error('[auth] rotación:', e.message); } }
 }
 const reserved = (name) => !!OFFICIAL && (nrm(name).includes(nrm(OFFICIAL.name)) || /u2u(oficial|admin)|oficialu2u|administrador/.test(nrm(name)));
@@ -315,17 +326,22 @@ function mount(app) {
       if (!CAMPUSES.includes(campus)) return bad(res, 400, 'INVALID', 'Elige tu sede.', 'campus');
       if (d.terms !== true) return bad(res, 400, 'INVALID', 'Debes aceptar los términos para registrarte.', 'terms');
       if (OFFICIAL && (nrm(name).includes(nrm(OFFICIAL.name)) || /u2u(oficial|admin)|oficialu2u|administrador/.test(nrm(name)))) return bad(res, 400, 'INVALID', 'Ese nombre está reservado para la cuenta oficial.', 'name');
+      { const nn = nrm(name); if (nn && [...byUid.values()].some((x) => nrm(x.name) === nn && !(byEmail.get(email) && byEmail.get(email).uid === x.uid && x.verified === false))) return bad(res, 409, 'INVALID', 'Ya existe una persona con ese nombre. Agrega tu segundo apellido o inicial.', 'name'); }
       sweep(); // las cuentas sin verificar de más de 72 h liberan su correo
-      if (byEmail.has(email)) return bad(res, 409, 'INVALID', 'Ese correo ya está registrado. Si no lo verificaste, pide un código nuevo.', 'email');
+      // una cuenta SIN verificar no tiene privilegios: quien registre ese correo después la reemplaza (nadie puede reservar el correo de otro)
+      const prev = byEmail.get(email);
+      const replaceable = !!prev && prev.verified === false && !prev.pending && !prev.admin;
+      if (prev && !replaceable) return bad(res, 409, 'INVALID', 'Ese correo ya está registrado.', 'email');
       const manual = envBool('REGISTRO_MANUAL'); // modo manual: no se envía código (no cuesta correo); aprueba la cuenta oficial
       if (!manual) { const why = await emailBudget(email, ip(req)); if (why) return bad(res, 429, 'RATE_LIMIT', why); }
 
       const hash = await hashPw(pw);
-      if (byEmail.has(email)) return bad(res, 409, 'INVALID', 'Ese correo ya está registrado.', 'email'); // carrera
-      const now = Date.now(), uid = 'u_' + crypto.randomBytes(6).toString('hex'), nv = newVerify(now);
+      if (byEmail.get(email) !== prev) return bad(res, 409, 'INVALID', 'Ese correo ya está registrado.', 'email'); // carrera: alguien cambió esa cuenta mientras se calculaba el hash
+      // si reemplaza, reutiliza uid y username: el upsert por clave sobrescribe la fila y no choca con el índice único del correo
+      const now = Date.now(), uid = replaceable ? prev.uid : 'u_' + crypto.randomBytes(6).toString('hex'), nv = newVerify(now);
       const u = {
         uid, secret: crypto.randomBytes(24).toString('hex'),
-        username: uid, // interno: se entra con el correo; nunca se muestra
+        username: replaceable ? prev.username : uid, // interno: se entra con el correo; nunca se muestra
         email, name, hash, createdAt: now, sessions: [],
         cond, career, cycle, campus,
         terms: { version: TERMS_VERSION, at: now },
@@ -334,7 +350,11 @@ function mount(app) {
       };
       try { await saveUser(u); } // guardada antes de responder
       catch (e) { if (e.code === '23505') return bad(res, 409, 'INVALID', 'Ese correo ya está registrado.', 'email'); throw e; }
-      index(u); rb.n++;
+      if (replaceable) { // la sesión (y el token) de quien reservó el correo primero dejan de servir
+        (prev.sessions || []).forEach((x) => bySess.delete(x.h)); prev.sessions = [];
+        await store.sessions.delByUid(prev.uid);
+      }
+      index(u); rb.n++; // index sobrescribe byUid/byEmail/byName con la cuenta nueva (mismo uid y usuario)
       const token = await issue(u);
       const sent = manual ? false : await sendCode(u, nv.code);
       res.status(201).json({ ok: true, token, user: pub(u), sent, ...(manual ? { pending: true } : { verify: { expiresIn: CODE_MS / 1000, resendIn: RESEND_MS / 1000 } }) });
@@ -404,17 +424,19 @@ function mount(app) {
       const d = req.body || {};
       const id = clean(d.id || d.email, 254).toLowerCase(), pw = String(d.password || '').slice(0, 128);
       if (!id || !pw) return res.status(400).json({ error: 'Completa usuario o correo y contraseña.' });
-      const acc = bucket('acc:' + id, LOGIN_WINDOW);
-      if (acc.n >= LOGIN_FAILS) return tooMany(res, acc); // cuenta bloqueada: ni siquiera se calcula el hash
+      const accKey = 'acc:' + id + '|' + ip(req), acc = bucket(accKey, LOGIN_WINDOW), accg = bucket('accg:' + id, LOGIN_WINDOW);
+      if (acc.n >= LOGIN_FAILS) return tooMany(res, acc); // bloqueo para esta IP: ni siquiera se calcula el hash
+      if (accg.n >= LOGIN_GLOBAL) return tooMany(res, accg);
 
       let u = live(id.includes('@') ? byEmail.get(id) : byName.get(id));
       if (u && !id.includes('@') && !u.admin && u.verified !== undefined) u = null; // con usuario solo entran las cuentas anteriores a la verificación y la oficial
       const ok = await checkPw(pw, u ? u.hash : await dummyHash());
       if (!u || !ok) {
+        if (++accg.n >= LOGIN_GLOBAL) accg.reset = Date.now() + LOGIN_WINDOW;
         if (++acc.n >= LOGIN_FAILS) { acc.reset = Date.now() + LOGIN_WINDOW; return tooMany(res, acc); }
         return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' }); // mismo mensaje exista o no el usuario
       }
-      hits.delete('acc:' + id);
+      hits.delete(accKey); hits.delete('accg:' + id);
       if (u.blocked) return res.status(403).json({ error: 'Tu cuenta fue bloqueada por incumplir las normas de la comunidad.', blocked: true });
       res.json({ token: await issue(u), user: pub(u) });
     } catch (e) { console.error('[auth] login', e.message); res.status(500).json({ error: 'Error del servidor. Intenta de nuevo.' }); }
@@ -504,8 +526,13 @@ function mount(app) {
       const nv = newVerify(now), old = u.recover;
       u.recover = nv.v;
       try { await saveUser(u); } catch (e) { u.recover = old; throw e; }
-      await sendCode(u, nv.code, 'recover');
-      generic();
+      generic(); // misma respuesta y mismo tiempo exista o no el correo: el envío ocurre DESPUÉS
+      sendCode(u, nv.code, 'recover').then((ok) => {
+        if (ok) return;
+        // no salió el correo: se libera el cooldown para que pueda reintentar enseguida
+        if (u.recover === nv.v) { if (old) u.recover = old; else delete u.recover; saveUser(u).catch(() => {}); }
+        console.error('[auth] recuperación: el correo no salió para la cuenta ' + u.uid);
+      });
     } catch (e) { console.error('[auth] recover', e.message); res.status(500).json({ ok: false, error: 'Error del servidor. Intenta de nuevo.' }); }
   });
   api.post('/recover/reset', async (req, res) => {
@@ -522,7 +549,11 @@ function mount(app) {
       const want = Buffer.from(r.h), got = Buffer.from(codeHash(r.salt, code));
       if (!(want.length === got.length && crypto.timingSafeEqual(want, got))) { r.attempts++; await saveUser(u); return noCode(); }
       delete u.recover; // se consume ya (síncrono): un segundo envío con el mismo código no pasa
-      try { await applyPassword(u, pw); } catch (e) { u.recover = r; throw e; }
+      const unv = !isVerified(u) && !u.pending && !u.admin, prevVerify = u.verify;
+      if (unv) { u.verified = true; u.verifiedAt = Date.now(); delete u.verify; } // el código llegó al buzón UPC: ya probó el correo
+      try { await applyPassword(u, pw); }
+      catch (e) { u.recover = r; if (unv) { u.verified = false; delete u.verifiedAt; u.verify = prevVerify; } throw e; }
+      if (unv && onReg) { try { onReg(u); } catch (e) { console.error('[auth] bienvenida:', e.message); } }
       res.json({ ok: true });
     } catch (e) { console.error('[auth] recover reset', e.message); res.status(500).json({ ok: false, error: 'Error del servidor. Intenta de nuevo.' }); }
   });
@@ -570,7 +601,7 @@ function accountFor(uid, secret) { const c = check(uid, secret); return c && !c.
 
 /* ---------- moderación: bloqueo de cuentas (se guarda en users.json) ---------- */
 const getByUid = (uid) => live(byUid.get(String(uid || '')));
-function setBlocked(uid, flag) {
+async function setBlocked(uid, flag) {
   const u = getByUid(uid);
   if (!u || u.admin) return null; // la cuenta admin no se puede bloquear
   if (flag) {
@@ -579,7 +610,7 @@ function setBlocked(uid, flag) {
     u.sessions = [];
   } else { delete u.blocked; delete u.blockedAt; }
   store.users.put(userRow(u));
-  if (flag) store.sessions.delByUid(u.uid);
+  if (flag) await store.sessions.delByUid(u.uid);
   return u;
 }
 const listBlocked = () => [...byUid.values()].filter((u) => u.blocked && !u.admin).map((u) => ({ uid: u.uid, name: u.name, username: u.username, blockedAt: u.blockedAt || 0 }));

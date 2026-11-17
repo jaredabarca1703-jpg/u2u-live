@@ -119,12 +119,12 @@ module.exports = function createFeatured(ctx) {
     if (r.status !== 'pending_payment') return no(409, 'INVALID', 'Esta solicitud ya no admite reportar un pago.');
     const at = now(), h = (rhits.get(uid) || []).filter((x) => at - x < 3600e3);
     if (h.length >= 5) { const e = no(429, 'RATE_LIMIT', 'Reportaste muchas veces. Intenta de nuevo en un rato.'); e.body.retry = Math.ceil((3600e3 - (at - h[0])) / 1000); return e; }
-    h.push(at); rhits.set(uid, h);
-    if (rhits.size > 2000) for (const [k, arr] of rhits) if (!arr.some(x => at - x < 3600e3)) rhits.delete(k);
     body = body || {};
     const name = clean(body.senderName, 60), opRaw = opn.normalize(body.operationNumber);
     if (name.length < 2) return no(400, 'INVALID', 'Escribe el nombre o celular del titular (2 a 60 caracteres).', 'senderName');
     if (!opRaw) return no(400, 'INVALID', 'Número de operación no válido (4 a 20 letras o números).', 'operationNumber');
+    h.push(at); rhits.set(uid, h); // el intento solo cuenta si el formato es válido (los typos no castigan al vendedor)
+    if (rhits.size > 2000) for (const [k, arr] of rhits) if (!arr.some(x => at - x < 3600e3)) rhits.delete(k);
     if (!opn.claim(opRaw)) return no(400, 'INVALID', 'Ese número de operación ya fue usado', 'operationNumber'); // el mismo registro que las comisiones; sin await entre comprobar y reservar
     const prev = { ...r };
     Object.assign(r, { status: 'payment_reported', reportedAt: at, opNumber: opRaw, senderName: name });
