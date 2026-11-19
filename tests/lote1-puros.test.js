@@ -78,4 +78,3 @@ test('db: con DATA_DIR, con ALLOW_FILE_DB=1 o en desarrollo sí arranca en modo 
   assert.match(dbInit({ RENDER: 'true', ALLOW_FILE_DB: '1', DATA_DIR: d + '-b' }), /ARRANCO file/);
   assert.match(dbInit({ DATA_DIR: d + '-c' }), /ARRANCO file/);
 });
-require('node:test').after(() => setTimeout(() => process.exit(0), 100));
