@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "migrate": "node migrate.js",
-    "test": "node --test --test-force-exit",
+    "test": "node --test",
     "check": "node scripts/check-all.js"
   },
   "engines": {
