@@ -2,10 +2,11 @@
   "name": "u2u-live",
   "version": "8.7.5",
   "description": "U2U - marketplace universitario en tiempo real (publicaciones, chat privado y entrega con código)",
+  "private": true,
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
+    "dev": "node --watch server.js",
     "migrate": "node migrate.js",
     "test": "node --test",
     "check": "node scripts/check-all.js"
@@ -14,7 +15,7 @@
     "node": "22.x"
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "pg": "^8.23.1",
     "socket.io": "^4.7.5"
   },
