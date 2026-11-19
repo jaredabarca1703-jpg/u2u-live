@@ -190,14 +190,21 @@ test('3.1 · un usuario normal no puede usar claves internas de foto; un admin s
 
 /* ---------- 3.7 / 3.8 servidor ---------- */
 const IMG = 'data:image/png;base64,iVBORw0KGgo=';
-test('3.7 · product-removed lleva mod:true solo si lo quitó un moderador', async () => {
-  const t = await start(), io = t.S._test.io, log = [], real = io.emit.bind(io);
-  io.emit = (ev, ...a) => { log.push([ev, ...a]); return real(ev, ...a); };
+test('3.7 · product-removed lleva mod:true solo si lo quitó un moderador (solo sala members)', async () => {
+  const t = await start(), io = t.S._test.io, log = [], realTo = io.to.bind(io);
+  io.to = (room) => {
+    const op = realTo(room), realEmit = op.emit.bind(op);
+    op.emit = (ev, ...a) => { log.push({ room, ev, data: a[0] }); return realEmit(ev, ...a); };
+    return op;
+  };
   const a = (await t.S._test.publish(owner, item({ t: 'Uno' }))).res.id, b = (await t.S._test.publish(owner, item({ t: 'Dos' }))).res.id;
   await t.S._test.removeProduct(a);
   await t.S._test.removeProduct(b, { mod: true });
-  const rem = log.filter((x) => x[0] === 'product-removed').map((x) => x[1]);
-  assert.deepEqual(rem, [{ id: a, mod: false }, { id: b, mod: true }]);
+  const rem = log.filter((x) => x.ev === 'product-removed');
+  assert.deepEqual(rem, [
+    { room: 'members', ev: 'product-removed', data: { id: a, mod: false } },
+    { room: 'members', ev: 'product-removed', data: { id: b, mod: true } },
+  ]);
   await t.stop();
 });
 
